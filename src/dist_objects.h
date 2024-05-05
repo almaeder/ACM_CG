@@ -146,6 +146,7 @@ class Distributed_matrix{
         hipblasHandle_t default_cublasHandle;
         hipsparseHandle_t default_cusparseHandle;
         rocsparse_handle default_rocsparseHandle;
+        
         double *Ap_local_d;
         rocsparse_dnvec_descr vecAp_local;
         double *z_local_d;

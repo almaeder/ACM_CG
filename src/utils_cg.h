@@ -1,6 +1,13 @@
 #pragma once
 #include <hip/hip_runtime.h>
 
+void extract_diagonal_inv(
+    double *data,
+    int *col_indices,
+    int *row_indptr,
+    double *diagonal_values_inv,
+    int matrix_size
+);
 
 void pack_gpu(
     double *packed_buffer,

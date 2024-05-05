@@ -44,47 +44,6 @@ void extract_diagonal_inv_sqrt(
     );
 }
 
-__global__ void _extract_diagonal_inv(
-    double *data,
-    int *col_indices,
-    int *row_indptr,
-    double *diagonal_values_inv_sqrt,
-    int matrix_size
-)
-{
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    for(int i = idx; i < matrix_size; i += blockDim.x * gridDim.x){
-        for(int j = row_indptr[i]; j < row_indptr[i+1]; j++){
-            if(col_indices[j] == i){
-                diagonal_values_inv_sqrt[i] = 1/data[j];
-                break;
-            }
-        }
-    }
-
-}
-
-
-
-void extract_diagonal_inv(
-    double *data,
-    int *col_indices,
-    int *row_indptr,
-    double *diagonal_values_inv,
-    int matrix_size
-)
-{
-    int block_size = 1024;
-    int num_blocks = (matrix_size + block_size - 1) / block_size;
-    hipLaunchKernelGGL(_extract_diagonal_inv, num_blocks, block_size, 0, 0, 
-        data,
-        col_indices,
-        row_indptr,
-        diagonal_values_inv,
-        matrix_size
-    );
-}
 
 __global__ void _precondition_vector_gpu(
     double *array,

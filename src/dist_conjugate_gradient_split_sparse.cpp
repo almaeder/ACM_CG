@@ -14,17 +14,18 @@ template <void (*distributed_spmv_split_sparse)
     rocsparse_dnvec_descr &,
     double *,
     hipStream_t &,
-    rocsparse_handle &)>
-void conjugate_gradient_jacobi_split_sparse(
+    rocsparse_handle &),
+    typename Precon>
+void preconditioned_conjugate_gradient_split_sparse(
     Distributed_subblock_sparse &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
     double *x_local_d,
-    double *diag_inv_local_d,
     double relative_tolerance,
     int max_iterations,
-    MPI_Comm comm)
+    MPI_Comm comm,
+    Precon &precon)
 {
 
     double a, b, na;
@@ -88,13 +89,11 @@ void conjugate_gradient_jacobi_split_sparse(
     cublasErrchk(hipblasDaxpy(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, &alpham1, A_distributed.Ap_local_d, 1, r_local_d, 1));
     
     // Mz = r
-    elementwise_vector_vector(
-        r_local_d,
-        diag_inv_local_d,
+    precon.apply_preconditioner(
         A_distributed.z_local_d,
-        A_distributed.rows_this_rank,
+        r_local_d,
         A_distributed.default_stream
-    ); 
+    );
     
     // double r_norm2_true;
     cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, A_distributed.z_local_d, 1, r_norm2_h));
@@ -148,14 +147,11 @@ void conjugate_gradient_jacobi_split_sparse(
         r0 = r_norm2_h[0];
 
         // Mz = r
-        elementwise_vector_vector(
-            r_local_d,
-            diag_inv_local_d,
+        precon.apply_preconditioner(
             A_distributed.z_local_d,
-            A_distributed.rows_this_rank,
+            r_local_d,
             A_distributed.default_stream
-        ); 
-        
+        );
 
         // r_norm2_h = r0*r0
         cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, A_distributed.z_local_d, 1, r_norm2_h));
@@ -181,37 +177,71 @@ void conjugate_gradient_jacobi_split_sparse(
 
 }
 template 
-void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse1>(
+void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse1, Preconditioner_none>(
     Distributed_subblock_sparse &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
     double *x_local_d,
-    double *diag_inv_local_d,
     double relative_tolerance,
     int max_iterations,
-    MPI_Comm comm);
-template
-void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse2>(
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse2, Preconditioner_none>(
     Distributed_subblock_sparse &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
     double *x_local_d,
-    double *diag_inv_local_d,
     double relative_tolerance,
     int max_iterations,
-    MPI_Comm comm);
-template
-void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse3>(
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse3, Preconditioner_none>(
     Distributed_subblock_sparse &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
     double *x_local_d,
-    double *diag_inv_local_d,
     double relative_tolerance,
     int max_iterations,
-    MPI_Comm comm);
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse1, Preconditioner_jacobi>(
+    Distributed_subblock_sparse &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse2, Preconditioner_jacobi>(
+    Distributed_subblock_sparse &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void conjugate_gradient_jacobi_split_sparse<dspmv_split_sparse::spmm_split_sparse3, Preconditioner_jacobi>(
+    Distributed_subblock_sparse &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+
 
 } // namespace iterative_solver

@@ -10,7 +10,7 @@
 #include <hipblas.h>
 #include "../src/dist_conjugate_gradient.h"
 #include "../src/dist_spmv.h"
-
+#include "../src/preconditioner.h"
 
 template <void (*distributed_spmv)(Distributed_matrix&, Distributed_vector&, rocsparse_dnvec_descr&, hipStream_t&, rocsparse_handle&)>
 void test_preconditioned(
@@ -87,19 +87,11 @@ void test_preconditioned(
 
     double *r_local_d;
     double *x_local_d;
-    double *diag_inv_local_d;
     hipMalloc(&r_local_d, rows_this_rank * sizeof(double));
     hipMalloc(&x_local_d, rows_this_rank * sizeof(double));
-    hipMalloc(&diag_inv_local_d, rows_this_rank * sizeof(double));
     hipMemcpy(r_local_d, r_local_h, rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
 
-    extract_diagonal_inv(
-        A_distributed.data_d[0],
-        A_distributed.col_indices_d[0],
-        A_distributed.row_ptr_d[0],
-        diag_inv_local_d,
-        rows_this_rank
-    );
+    
 
     for(int i = 0; i < number_of_measurements; i++){
         // reset starting guess and right hand side
@@ -111,15 +103,16 @@ void test_preconditioned(
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_start = std::chrono::high_resolution_clock::now();
 
-        iterative_solver::conjugate_gradient_jacobi<dspmv::gpu_packing>(
+        Preconditioner_jacobi precon(A_distributed);
+        iterative_solver::preconditioned_conjugate_gradient<dspmv::gpu_packing, Preconditioner_jacobi>(
             A_distributed,
             p_distributed,
             r_local_d,
             x_local_d,
-            diag_inv_local_d,
             relative_tolerance,
             max_iterations,
-            comm);
+            comm,
+            precon);
 
 
         hipDeviceSynchronize();
@@ -184,7 +177,7 @@ int main(int argc, char **argv) {
     }
 
     int start_up_measurements = 0;
-    int true_number_of_measurements = 1;
+    int true_number_of_measurements = 10;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
 
     int max_iterations = 10000;

@@ -9,14 +9,6 @@ void extract_diagonal_inv_sqrt(
     int matrix_size
 );
 
-void extract_diagonal_inv(
-    double *data,
-    int *col_indices,
-    int *row_indptr,
-    double *diagonal_values_inv,
-    int matrix_size
-);
-
 void precondition_vector_gpu(
     double *array,
     double *diagonal_values_inv_sqrt,
