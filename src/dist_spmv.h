@@ -11,7 +11,6 @@
 
 namespace dspmv{
 
-
 void gpu_packing(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
@@ -27,37 +26,6 @@ void gpu_packing_cam(
     rocsparse_handle &default_rocsparseHandle);
 
 } // namespace dspmv
-
-namespace dspmv_split{
-
-void spmm_split1(
-    Distributed_subblock &A_subblock,
-    Distributed_matrix &A_distributed,    
-    double *p_subblock_d,
-    double *p_subblock_h,
-    Distributed_vector &p_distributed,
-    double *Ap_subblock_d,
-    rocsparse_dnvec_descr &vecAp_local,
-    double *Ap_local_d,
-    hipStream_t &default_stream,
-    rocblas_handle &default_rocblasHandle,
-    rocsparse_handle &default_rocsparseHandle);
-
-void spmm_split2(
-    Distributed_subblock &A_subblock,
-    Distributed_matrix &A_distributed,    
-    double *p_subblock_d,
-    double *p_subblock_h,
-    Distributed_vector &p_distributed,
-    double *Ap_subblock_d,
-    rocsparse_dnvec_descr &vecAp_local,
-    double *Ap_local_d,
-    hipStream_t &default_stream,
-    rocblas_handle &default_rocblasHandle,
-    rocsparse_handle &default_rocsparseHandle);
-
-} // namespace dspmv_split
-
 
 namespace dspmv_split_sparse{
 

@@ -22,13 +22,6 @@ void load_matrix_parameters(
     std::string filename, 
     int *matrix_size);
 
-void extract_diagonal(
-    double *data,
-    int *row_ptr,
-    int *col_indices,
-    double *diagonal,
-    int matrix_size);
-
 void symmetric_precondition_matrix(
     double *data,
     int *row_ptr,

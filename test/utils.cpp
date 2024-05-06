@@ -73,23 +73,6 @@ void load_matrix_parameters(
 
 }
 
-void extract_diagonal(
-    double *data,
-    int *row_ptr,
-    int *col_indices,
-    double *diagonal,
-    int matrix_size)
-{
-    #pragma omp parallel for
-    for(int i = 0; i < matrix_size; i++){
-        for(int j = row_ptr[i]; j < row_ptr[i+1]; j++){
-            if(col_indices[j] == i){
-                diagonal[i] = data[j];
-            }
-        }
-    }
-}
-
 void symmetric_precondition_matrix(
     double *data,
     int *row_ptr,

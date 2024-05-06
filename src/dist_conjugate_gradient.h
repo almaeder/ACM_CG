@@ -33,29 +33,6 @@ void preconditioned_conjugate_gradient(
     MPI_Comm comm,
     Precon &precon);
 
-template <void (*distributed_spmv_split)
-    (Distributed_subblock &,
-    Distributed_matrix &,    
-    double *,
-    double *,
-    Distributed_vector &,
-    double *,
-    rocsparse_dnvec_descr &,
-    double *,
-    hipStream_t &,
-    rocblas_handle &,
-    rocsparse_handle&)>
-void conjugate_gradient_jacobi_split(
-    Distributed_subblock &A_subblock,
-    Distributed_matrix &A_distributed,
-    Distributed_vector &p_distributed,
-    double *r_local_d,
-    double *x_local_d,
-    double *diag_inv_local_d,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm);
-
 template <void (*distributed_spmv_split_sparse)
     (Distributed_subblock_sparse &,
     Distributed_matrix &,    
@@ -68,16 +45,17 @@ template <void (*distributed_spmv_split_sparse)
     rocsparse_dnvec_descr &,
     double *,
     hipStream_t &,
-    rocsparse_handle &)>
-void conjugate_gradient_jacobi_split_sparse(
+    rocsparse_handle &),
+    typename Precon>
+void preconditioned_conjugate_gradient_split(
     Distributed_subblock_sparse &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
     double *x_local_d,
-    double *diag_inv_local_d,
     double relative_tolerance,
     int max_iterations,
-    MPI_Comm comm);
+    MPI_Comm comm,
+    Precon &precon);
 
 } // namespace iterative_solver

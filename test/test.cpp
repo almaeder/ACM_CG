@@ -3,154 +3,7 @@
 #include "utils.h"
 #include <mpi.h>
 #include <hip/hip_runtime.h>
-
-#include <hip/hip_runtime.h>
-#include <hip/hip_runtime.h>
-#include "utils_gpu.h"
-#include <hipblas.h>
-#include "../src/dist_conjugate_gradient.h"
-#include "../src/dist_spmv.h"
-#include "../src/preconditioner.h"
-
-template <void (*distributed_spmv)(Distributed_matrix&, Distributed_vector&, rocsparse_dnvec_descr&, hipStream_t&, rocsparse_handle&)>
-void test_preconditioned(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements)
-{
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-
-    if(rank == 0){
-        std::cout << "Start test" << std::endl;
-    }
-    MPI_Barrier(comm);
-    int counts[size];
-    int displacements[size];
-    int rows_this_rank;    
-    split_matrix(matrix_size, size, counts, displacements);
-    int row_start_index = displacements[rank];
-    rows_this_rank = counts[rank];
-    // Split full matrix into rows
-    int *row_indptr_local_h = new int[rows_this_rank+1];
-    double *r_local_h = new double[rows_this_rank];
-    for (int i = 0; i < rows_this_rank+1; ++i) {
-        row_indptr_local_h[i] = row_indptr_h[i+row_start_index] - row_indptr_h[row_start_index];
-    }
-    for (int i = 0; i < rows_this_rank; ++i) {
-        r_local_h[i] = r_h[i+row_start_index];
-    }
-    int nnz_local = row_indptr_local_h[rows_this_rank];
-    int *col_indices_local_h = new int[nnz_local];
-    double *data_local_h = new double[nnz_local];
-    for (int i = 0; i < nnz_local; ++i) {
-        col_indices_local_h[i] = col_indices_h[i+row_indptr_h[row_start_index]];
-        data_local_h[i] = data_h[i+row_indptr_h[row_start_index]];
-    }
-
-    rocsparse_spmv_alg algos[size];
-    for(int k = 0; k < size; k++){
-        algos[k] = rocsparse_spmv_alg_csr_stream;
-    }        
-    algos[rank] = rocsparse_spmv_alg_csr_adaptive;
-    // use class contructor where whole rows_this_rank*matrix_size is input
-    // possible to directly give number_of_neighbors * (rows_this_rank*rows_other_rank) as input
-    Distributed_matrix A_distributed(
-        matrix_size,
-        nnz_local,
-        counts,
-        displacements,
-        col_indices_local_h,
-        row_indptr_local_h,
-        data_local_h,
-        algos,
-        comm
-    );
-    Distributed_vector p_distributed(
-        matrix_size,
-        counts,
-        displacements,
-        A_distributed.number_of_neighbours,
-        A_distributed.neighbours,
-        comm
-    );
-
-    double *r_local_d;
-    double *x_local_d;
-    hipMalloc(&r_local_d, rows_this_rank * sizeof(double));
-    hipMalloc(&x_local_d, rows_this_rank * sizeof(double));
-    hipMemcpy(r_local_d, r_local_h, rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
-
-    
-
-    for(int i = 0; i < number_of_measurements; i++){
-        // reset starting guess and right hand side
-        hipMemcpy(x_local_d, starting_guess_h,
-            rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
-        hipMemcpy(r_local_d, r_local_h, rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
-
-        hipDeviceSynchronize();
-        MPI_Barrier(MPI_COMM_WORLD);
-        auto time_start = std::chrono::high_resolution_clock::now();
-
-        Preconditioner_jacobi precon(A_distributed);
-        iterative_solver::preconditioned_conjugate_gradient<dspmv::gpu_packing, Preconditioner_jacobi>(
-            A_distributed,
-            p_distributed,
-            r_local_d,
-            x_local_d,
-            relative_tolerance,
-            max_iterations,
-            comm,
-            precon);
-
-
-        hipDeviceSynchronize();
-        MPI_Barrier(MPI_COMM_WORLD);
-        auto time_end = std::chrono::high_resolution_clock::now();
-        time_taken[i] += std::chrono::duration<double>(time_end - time_start).count();
-        if(rank == 0){
-            std::cout << rank << " time_taken["<<i<<"] " << time_taken[i] << std::endl;
-        }
-    }
-    //copy solution to host
-    cudaErrchk(hipMemcpy(test_solution_h, x_local_d, rows_this_rank * sizeof(double), hipMemcpyDeviceToHost));
-
-
-    delete[] row_indptr_local_h;
-    delete[] r_local_h;
-    delete[] col_indices_local_h;
-    delete[] data_local_h;
-    hipFree(r_local_d);
-    hipFree(x_local_d);
-
-    MPI_Barrier(comm);
-}
-template 
-void test_preconditioned<dspmv::gpu_packing>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-
+#include "nondist_wrapper.h"
 
 int main(int argc, char **argv) {
 
@@ -159,7 +12,12 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    hipError_t set_device_error = hipSetDevice(0);
+    char* slurm_localid = getenv("SLURM_LOCALID");
+    int localid = atoi(slurm_localid);
+    int device_id = localid; 
+    std::cout << "rank " << rank << " device_id " << device_id << std::endl;
+
+    hipError_t set_device_error = hipSetDevice(localid);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
     int matsize = 100;
@@ -182,18 +40,6 @@ int main(int argc, char **argv) {
 
     int max_iterations = 10000;
     double relative_tolerance = 1.46524e-09;
-
-    int counts[size];
-    int displacements[size];
-    int rows_this_rank;    
-    split_matrix(matrix_size, size, counts, displacements);
-
-    int row_start_index = displacements[rank];
-    rows_this_rank = counts[rank];
-    int row_end_index = row_start_index + rows_this_rank;
-
-    std::cout << "rank " << rank << " row_start_index " << row_start_index << " row_end_index " << row_end_index << std::endl;
-    std::cout << "rank " << rank << " rows_this_rank " << rows_this_rank << std::endl;
 
     double *data = new double[nnz];
     int *row_ptr = new int[matrix_size+1];
@@ -252,13 +98,13 @@ int main(int argc, char **argv) {
     double times_gpu_packing[number_of_measurements];
     double times_gpu_packing_cam[number_of_measurements];
 
-    double *test_solution_h = new double[rows_this_rank];
+    double *test_solution_h = new double[matrix_size];
     test_preconditioned<dspmv::gpu_packing>(
         data,
         col_indices,
         row_ptr,
         rhs,
-        starting_guess_h + row_start_index,
+        starting_guess_h,
         test_solution_h,
         matrix_size,
         relative_tolerance,
@@ -268,16 +114,14 @@ int main(int argc, char **argv) {
         number_of_measurements
     );
 
-    double difference = 0;
-    double sum_ref = 0;
-    for (int i = 0; i < rows_this_rank; ++i) {
-        difference += std::sqrt( (test_solution_h[i] - reference_solution[i+row_start_index]) *
-            (test_solution_h[i] - reference_solution[i+row_start_index]) );
-        sum_ref += std::sqrt( (reference_solution[i+row_start_index]) * (reference_solution[i+row_start_index]) );
-    }
-    MPI_Allreduce(MPI_IN_PLACE, &difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &sum_ref, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     if(rank == 0){
+        double difference = 0;
+        double sum_ref = 0;
+        for (int i = 0; i < matrix_size; ++i) {
+            difference += std::sqrt( (test_solution_h[i] - reference_solution[i]) *
+                (test_solution_h[i] - reference_solution[i]) );
+            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+        }
         std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
     }
 
