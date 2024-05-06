@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     hipError_t set_device_error = hipSetDevice(localid);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
-    int matsize = 2;
+    int matsize = 10;
     std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices/";
     std::string save_path ="/scratch/project_465000929/maederal/ACM_Poster/results/";
 
@@ -43,13 +43,12 @@ int main(int argc, char **argv) {
 
     if(nnz_subblock + nnz_sparse < nnz_total){
         std::cout << "Impossible nnz" << std::endl;
+        std::cout << nnz_subblock << " " << nnz_sparse << " " << nnz_total << std::endl; 
         exit(1);
     }
 
-
-
     int max_iterations = 10000;
-    double relative_tolerance = 1e-18;
+    double relative_tolerance =  1e-21;
 
     int counts[size];
     int displacements[size];
@@ -86,9 +85,11 @@ int main(int argc, char **argv) {
     std::string data_sparse_filename = data_path + "X_data_"+ std::to_string(matsize) +".bin";
     std::string row_ptr_sparse_filename = data_path + "X_row_ptr_"+ std::to_string(matsize) +".bin";
     std::string col_indices_sparse_filename = data_path + "X_col_indices_"+ std::to_string(matsize) +".bin";
+
     std::string data_tot_filename = data_path + "X_total_data_"+ std::to_string(matsize) +".bin";
     std::string row_ptr_tot_filename = data_path + "X_total_row_ptr_"+ std::to_string(matsize) +".bin";
     std::string col_indices_tot_filename = data_path + "X_total_col_indices_"+ std::to_string(matsize) +".bin";
+    
     std::string rhs_filename = data_path + "X_rhs_"+std::to_string(matsize)+".bin";
     std::string solution_filename = data_path + "X_solution_"+std::to_string(matsize)+".bin";
 
@@ -112,6 +113,35 @@ int main(int argc, char **argv) {
         load_binary_array<double>(data_subblock_filename, data_subblock, nnz_subblock);
         load_binary_array<int>(row_ptr_subblock_filename, row_ptr_subblock, subblock_size+1);
         load_binary_array<int>(col_indices_subblock_filename, col_indices_subblock, nnz_subblock);
+
+        // correct total dat since there is a problem:
+        double *diag_values = new double[matrix_size];
+        for(int i = 0; i < matrix_size; i++){
+            diag_values[i] = 0; 
+        }
+        for(int i = 0; i < matrix_size; i++){
+            for(int j = row_ptr_sparse[i]; j < row_ptr_sparse[i+1]; j++){
+                if(i == col_indices_sparse[j]){
+                    diag_values[i] = data_sparse[j];     
+                }
+            }
+        }
+        for(int i = 0; i < subblock_size; i++){
+            for(int j = row_ptr_subblock[i]; j < row_ptr_subblock[i+1]; j++){
+                if(i == col_indices_subblock[j]){
+                    diag_values[subblock_indices[i]] += data_subblock[j];     
+                }
+            }
+        }
+        for(int i = 0; i < matrix_size; i++){
+            for(int j = row_ptr_tot[i]; j < row_ptr_tot[i+1]; j++){
+                if(i == col_indices_tot[j]){
+                    data_tot[j] = diag_values[i];     
+                }
+            }
+        }
+        delete[] diag_values;
+
     }
     // broadcast data
     std::cout << "broadcasting data" << std::endl;
@@ -191,8 +221,11 @@ int main(int argc, char **argv) {
                 }
             }
         }
+        delete[] dense_tot;
+        delete[] dense_split;
     }
     MPI_Barrier(MPI_COMM_WORLD);
+
 
     int start_up_measurements = 0;
     int true_number_of_measurements = 1;
@@ -265,181 +298,32 @@ int main(int argc, char **argv) {
         std::cout << "difference/sum_ref split1 " << difference/sum_ref << std::endl;
     }
     
-    // // test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse2>(
-    // //         data_sparse,
-    // //         col_indices_sparse,
-    // //         row_ptr_sparse,
-    // //         subblock_indices,
-    // //         data_subblock,
-    // //         col_indices_subblock,
-    // //         row_ptr_subblock,
-    // //         subblock_size,
-    // //         rhs,
-    // //         test_solution_split1_h,
-    // //         starting_guess_h,
-    // //         matrix_size,
-    // //         relative_tolerance,
-    // //         max_iterations,
-    // //         MPI_COMM_WORLD,
-    // //         time_split_sparse2,
-    // //         number_of_measurements
-    // // );
+    delete[] data_sparse;
+    delete[] row_ptr_sparse;
+    delete[] col_indices_sparse;
+    delete[] data_tot;
+    delete[] row_ptr_tot;
+    delete[] col_indices_tot;
+    delete[] reference_solution;
+    delete[] rhs;
+    delete[] starting_guess_h;
+    delete[] subblock_indices;
+    delete[] data_subblock;
+    delete[] row_ptr_subblock;
+    delete[] col_indices_subblock;
 
+    delete[] test_solution_tot_h;
+    delete[] test_solution_split1_h;
 
-    // // sum = 0.0;
-    // // diff_split = 0.0;
-    // // #pragma omp parallel for reduction(+:sum, diff_split)
-    // // for (int i = 0; i < matrix_size; ++i) {
-    // //     sum += std::abs(reference_solution[i]) * std::abs(reference_solution[i]);
-    // //     diff_split += std::abs(reference_solution[i] - test_solution_split1_h[i]) * std::abs(reference_solution[i] - test_solution_split1_h[i]);
-    // // }
-    // // if(rank == 0){
-    // //     std::cout << " relative error split sparse2 " << std::sqrt(diff_split / sum) << std::endl; 
-    // // }
-    
+    // std::string path_solve_tot = get_filename(save_path, "solve_tot", 0, size, rank);
+    // std::string path_solve_split1 = get_filename(save_path, "solve_split1", 0, size, rank);
 
-    // // test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse3>(
-    // //         data_sparse,
-    // //         col_indices_sparse,
-    // //         row_ptr_sparse,
-    // //         subblock_indices,
-    // //         data_subblock,
-    // //         col_indices_subblock,
-    // //         row_ptr_subblock,
-    // //         subblock_size,
-    // //         rhs,
-    // //         test_solution_split1_h,
-    // //         starting_guess_h,
-    // //         matrix_size,
-    // //         relative_tolerance,
-    // //         max_iterations,
-    // //         MPI_COMM_WORLD,
-    // //         time_split_sparse3,
-    // //         number_of_measurements
-    // // );
-
-
-    // // sum = 0.0;
-    // // diff_split = 0.0;
-    // // #pragma omp parallel for reduction(+:sum, diff_split)
-    // // for (int i = 0; i < matrix_size; ++i) {
-    // //     sum += std::abs(reference_solution[i]) * std::abs(reference_solution[i]);
-    // //     diff_split += std::abs(reference_solution[i] - test_solution_split1_h[i]) * std::abs(reference_solution[i] - test_solution_split1_h[i]);
-    // // }
-    // // if(rank == 0){
-    // //     std::cout << " relative error split sparse3 " << std::sqrt(diff_split / sum) << std::endl; 
-    // // }
-    
-
-
-    // // // rank zero should print average time
-    // // double average_time_tot = 0;
-    // // double average_time_split1 = 0;
-    // // double average_time_split2 = 0;
-    // // double average_time_split3 = 0;
-    // // double average_time_split4 = 0;
-    // // double average_time_split5 = 0;
-    // // double average_time_split6 = 0;
-    // // double average_time_split_sparse1 = 0;
-    // // double average_time_split_sparse2 = 0;
-    // // double average_time_split_sparse3 = 0;
-    // // double average_time_split_sparse4 = 0;
-    // // double average_time_split_sparse5 = 0;
-    // // for(int i = 1; i < number_of_measurements; i++){
-    // //     average_time_tot += time_tot[i];
-    // //     average_time_split1 += time_split1[i];
-    // //     average_time_split2 += time_split2[i];
-    // //     average_time_split3 += time_split3[i];
-    // //     average_time_split4 += time_split4[i];
-    // //     average_time_split5 += time_split5[i];
-    // //     average_time_split6 += time_split6[i];
-    // //     average_time_split_sparse1 += time_split_sparse1[i];
-    // //     average_time_split_sparse2 += time_split_sparse2[i];
-    // //     average_time_split_sparse3 += time_split_sparse3[i];
-    // //     average_time_split_sparse4 += time_split_sparse4[i];
-    // //     average_time_split_sparse5 += time_split_sparse5[i];
-    // // }
-    // // // if(rank == 0){
-    // // //     std::cout << "average time tot " << average_time_tot / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split " << average_time_split1 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split " << average_time_split2 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split " << average_time_split3 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split " << average_time_split4 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split " << average_time_split5 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split " << average_time_split6 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split sparse " << average_time_split_sparse1 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split sparse " << average_time_split_sparse2 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split sparse " << average_time_split_sparse3 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split sparse " << average_time_split_sparse4 / (number_of_measurements-1) << std::endl;
-    // // //     std::cout << "average time split sparse " << average_time_split_sparse5 / (number_of_measurements-1) << std::endl;
-    // // // }
-
-    // // hipFree(diag_inv_d);
-    // // delete[] diag_inv_h;
-    // // delete[] data_sparse;
-    // // delete[] row_ptr_sparse;
-    // // delete[] col_indices_sparse;
-    // // delete[] data_tot;
-    // // delete[] row_ptr_tot;
-    // // delete[] col_indices_tot;
-    // // delete[] reference_solution;
-    // // delete[] rhs;
-    // // delete[] starting_guess_h;
-    // // delete[] subblock_indices;
-    // // delete[] dense_subblock_data;
-    // // delete[] diag;
-    // // // delete[] dense_tot;
-    // // // delete[] dense_split;
-    // // std::string save_path = "/scratch/project_465000929/maederal/measurement_100_split/";
-    // // std::string path_solve_tot = get_filename(save_path, "solve_tot", 0, size, rank);
-    // // std::string path_solve_split1 = get_filename(save_path, "solve_split1", 0, size, rank);
-    // // std::string path_solve_split2 = get_filename(save_path, "solve_split2", 0, size, rank);
-    // // std::string path_solve_split3 = get_filename(save_path, "solve_split3", 0, size, rank);
-    // // std::string path_solve_split4 = get_filename(save_path, "solve_split4", 0, size, rank);
-    // // std::string path_solve_split5 = get_filename(save_path, "solve_split5", 0, size, rank);
-    // // std::string path_solve_split6 = get_filename(save_path, "solve_split6", 0, size, rank);
-    // // std::string path_solve_split_sparse1 = get_filename(save_path, "solve_split_sparse1", 0, size, rank);
-    // // std::string path_solve_split_sparse2 = get_filename(save_path, "solve_split_sparse2", 0, size, rank);
-    // // std::string path_solve_split_sparse3 = get_filename(save_path, "solve_split_sparse3", 0, size, rank);
-    // // std::string path_solve_split_sparse4 = get_filename(save_path, "solve_split_sparse4", 0, size, rank);
-    // // std::string path_solve_split_sparse5 = get_filename(save_path, "solve_split_sparse5", 0, size, rank);
-
-    // // save_measurements(path_solve_tot,
-    // //     time_tot + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split1,
-    // //     time_split1 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split2,
-    // //     time_split2 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split3,
-    // //     time_split3 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split4,
-    // //     time_split4 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split5,
-    // //     time_split5 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split6,
-    // //     time_split6 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split_sparse1,
-    // //     time_split_sparse1 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split_sparse2,
-    // //     time_split_sparse2 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split_sparse3,
-    // //     time_split_sparse3 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split_sparse4,
-    // //     time_split_sparse4 + start_up_measurements,
-    // //     true_number_of_measurements, true);
-    // // save_measurements(path_solve_split_sparse5,
-    // //     time_split_sparse5 + start_up_measurements,
-    // //     true_number_of_measurements, true);
+    // save_measurements(path_solve_tot,
+    //     time_tot + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_solve_split1,
+    //     time_split_sparse1 + start_up_measurements,
+    //     true_number_of_measurements, true);
 
     MPI_Finalize();
     return 0;

@@ -57,14 +57,12 @@ void preconditioned_conjugate_gradient_split(
     cudaErrchk(hipMemcpy(p_distributed.vec_d[0], x_local_d,
         p_distributed.counts[A_distributed.rank] * sizeof(double), hipMemcpyDeviceToDevice));
     cudaErrchk(hipMemset(A_distributed.Ap_local_d, 0, A_distributed.rows_this_rank * sizeof(double)));
-    std::cout << 14 << std::endl;
     //begin CG
     // norm of rhs for convergence check
     
     cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, r_local_d, 1, &norm2_rhs));
     MPI_Allreduce(MPI_IN_PLACE, &norm2_rhs, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-    std::cout << A_distributed.rank << " before spmv" << std::endl;
     MPI_Barrier(comm);
     // A*x0
     distributed_spmv_split_sparse(
@@ -87,7 +85,6 @@ void preconditioned_conjugate_gradient_split(
     // r_norm2_h = r0*r0
     cublasErrchk(hipblasDaxpy(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, &alpham1, A_distributed.Ap_local_d, 1, r_local_d, 1));
     
-    std::cout << A_distributed.rank << " before Mz=r" << std::endl;
     // Mz = r
     precon.apply_preconditioner(
         A_distributed.z_local_d,
