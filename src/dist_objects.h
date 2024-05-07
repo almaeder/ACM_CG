@@ -35,34 +35,60 @@ class Distributed_vector{
 
 };
 
-struct Distributed_subblock{
-    int *subblock_indices_local_d;
-    double *A_subblock_local_d;
-    int subblock_size;
-    int *count_subblock_h;
-    int *displ_subblock_h;
-    hipStream_t *streams_recv_subblock;
-    hipEvent_t *events_recv_subblock;
-    MPI_Request *send_subblock_requests;
-    MPI_Request *recv_subblock_requests;
+class Distributed_subblock{
+    public:
+        int size;
+        int rank;
+        int *counts;
+        int *displacements;    
+        MPI_Comm comm;
+
+        int matrix_size;
+        int *subblock_indices_local_d;
+        int subblock_size;
+
+        int *counts_subblock;
+        int *displacements_subblock;
+
+        int nnz;
+        double *data_d;
+        int *row_ptr_d;
+        int *row_ptr_compressed_d;
+        int *col_indices_d;
+        int *col_indices_compressed_d;
+        
+        rocsparse_spmat_descr descriptor;
+        size_t buffersize;
+        double *buffer_d;
+        rocsparse_spmv_alg algo;
+
+        hipEvent_t *events_recv;
+        hipStream_t *streams_recv;
+        MPI_Request *send_requests;
+        MPI_Request *recv_requests;
+
+        Distributed_subblock(
+            int matrix_size,
+            int *subblock_indices_local_h,
+            int subblock_size,
+            int *counts,
+            int *displacements,
+            int *counts_subblock,
+            int *displacements_subblock,
+            int nnz,
+            double *data_d,
+            int *row_ptr_compressed_d,
+            int *col_indices_compressed_d,
+            rocsparse_spmv_alg algo,
+            MPI_Comm comm);
+
+        ~Distributed_subblock();
+
+
+    private:
+
+
 };
-
-
-struct Distributed_subblock_sparse{
-    int *subblock_indices_local_d;
-    rocsparse_spmat_descr *descriptor;
-    rocsparse_spmv_alg algo;
-    size_t *buffersize;
-    double *buffer_d;
-    int subblock_size;
-    int *count_subblock_h;
-    int *displ_subblock_h;
-    hipStream_t *streams_recv_subblock;
-    hipEvent_t *events_recv_subblock;
-    MPI_Request *send_subblock_requests;
-    MPI_Request *recv_subblock_requests;
-};
-
 
 // assumes that the matrix is symmetric
 // does a 1D decomposition over the rows

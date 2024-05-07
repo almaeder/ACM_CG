@@ -23,7 +23,7 @@ void test_preconditioned(
     int number_of_measurements);
 
 template <void (*distributed_spmv_split_sparse)
-    (Distributed_subblock_sparse &,
+    (Distributed_subblock &,
     Distributed_matrix &,    
     double *,
     double *,

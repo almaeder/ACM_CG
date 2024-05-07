@@ -3,7 +3,7 @@
 namespace dspmv_split_sparse{
 
 void spmm_split_sparse1(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,    
     double *p_subblock_d,
     double *p_subblock_h,
@@ -19,7 +19,6 @@ void spmm_split_sparse1(
     // Isend Irecv subblock
     // sparse part
     //gemv
-
     int rank = A_distributed.rank;
     int size = A_distributed.size;
 
@@ -27,23 +26,23 @@ void spmm_split_sparse1(
     double beta = 0.0;
 
     // pack dense sublblock p
-    pack_gpu(p_subblock_d + A_subblock.displ_subblock_h[rank],
+    pack_gpu(p_subblock_d + A_subblock.displacements_subblock[rank],
         p_distributed.vec_d[0],
         A_subblock.subblock_indices_local_d,
-        A_subblock.count_subblock_h[rank],
+        A_subblock.counts_subblock[rank],
         default_stream);
 
     if(size > 1){
         hipStreamSynchronize(default_stream);
         for(int i = 0; i < size-1; i++){
             int dest = (rank + 1 + i) % size;
-            MPI_Isend(p_subblock_d + A_subblock.displ_subblock_h[rank], A_subblock.count_subblock_h[rank],
-                MPI_DOUBLE, dest, dest, A_distributed.comm, &A_subblock.send_subblock_requests[i]);
+            MPI_Isend(p_subblock_d + A_subblock.displacements_subblock[rank], A_subblock.counts_subblock[rank],
+                MPI_DOUBLE, dest, dest, A_distributed.comm, &A_subblock.send_requests[i]);
         }
         for(int i = 0; i < size-1; i++){
             int source = (rank + 1 + i) % size;
-            MPI_Irecv(p_subblock_d + A_subblock.displ_subblock_h[source], A_subblock.count_subblock_h[source],
-                MPI_DOUBLE, source, rank, A_distributed.comm, &A_subblock.recv_subblock_requests[i]);
+            MPI_Irecv(p_subblock_d + A_subblock.displacements_subblock[source], A_subblock.counts_subblock[source],
+                MPI_DOUBLE, source, rank, A_distributed.comm, &A_subblock.recv_requests[i]);
         }
     }
 
@@ -55,16 +54,16 @@ void spmm_split_sparse1(
         default_rocsparseHandle
     );
     if(size > 1){
-        MPI_Waitall(size-1, A_subblock.recv_subblock_requests, MPI_STATUSES_IGNORE);
-        MPI_Waitall(size-1, A_subblock.send_subblock_requests, MPI_STATUSES_IGNORE);
+        MPI_Waitall(size-1, A_subblock.recv_requests, MPI_STATUSES_IGNORE);
+        MPI_Waitall(size-1, A_subblock.send_requests, MPI_STATUSES_IGNORE);
     }
 
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        *A_subblock.descriptor, vecp_subblock,
+        A_subblock.descriptor, vecp_subblock,
         &beta, vecAp_subblock, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        A_subblock.buffersize,
+        &A_subblock.buffersize,
         A_subblock.buffer_d);
 
     // unpack and add it to Ap
@@ -72,14 +71,15 @@ void spmm_split_sparse1(
         Ap_local_d,
         Ap_subblock_d,
         A_subblock.subblock_indices_local_d,
-        A_subblock.count_subblock_h[rank],
+        A_subblock.counts_subblock[rank],
         default_stream
-    );        
+    );     
+
 }
 
 
 void spmm_split_sparse2(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,    
     double *p_subblock_d,
     double *p_subblock_h,
@@ -101,10 +101,10 @@ void spmm_split_sparse2(
     cudaErrchk(hipEventRecord(A_distributed.event_default_finished, default_stream));
 
     // pack dense sublblock p
-    pack_gpu(p_subblock_d + A_subblock.displ_subblock_h[rank],
+    pack_gpu(p_subblock_d + A_subblock.displacements_subblock[rank],
         p_distributed.vec_d[0],
         A_subblock.subblock_indices_local_d,
-        A_subblock.count_subblock_h[rank],
+        A_subblock.counts_subblock[rank],
         default_stream);
 
     // post all send requests
@@ -120,13 +120,13 @@ void spmm_split_sparse2(
         cudaErrchk(hipStreamSynchronize(default_stream));
         for(int i = 0; i < size-1; i++){
             int dest = (rank + 1 + i) % size;
-            MPI_Isend(p_subblock_d + A_subblock.displ_subblock_h[rank], A_subblock.count_subblock_h[rank],
-                MPI_DOUBLE, dest, dest, A_distributed.comm, &A_subblock.send_subblock_requests[i]);
+            MPI_Isend(p_subblock_d + A_subblock.displacements_subblock[rank], A_subblock.counts_subblock[rank],
+                MPI_DOUBLE, dest, dest, A_distributed.comm, &A_subblock.send_requests[i]);
         }
         for(int i = 0; i < size-1; i++){
             int source = (rank + 1 + i) % size;
-            MPI_Irecv(p_subblock_d + A_subblock.displ_subblock_h[source], A_subblock.count_subblock_h[source],
-                MPI_DOUBLE, source, rank, A_distributed.comm, &A_subblock.recv_subblock_requests[i]);
+            MPI_Irecv(p_subblock_d + A_subblock.displacements_subblock[source], A_subblock.counts_subblock[source],
+                MPI_DOUBLE, source, rank, A_distributed.comm, &A_subblock.recv_requests[i]);
         }
     }
 
@@ -188,16 +188,16 @@ void spmm_split_sparse2(
 
     if(size > 1){
         MPI_Waitall(A_distributed.number_of_neighbours-1, &A_distributed.send_requests[1], MPI_STATUSES_IGNORE);
-        MPI_Waitall(size-1, A_subblock.recv_subblock_requests, MPI_STATUSES_IGNORE);
-        MPI_Waitall(size-1, A_subblock.send_subblock_requests, MPI_STATUSES_IGNORE);
+        MPI_Waitall(size-1, A_subblock.recv_requests, MPI_STATUSES_IGNORE);
+        MPI_Waitall(size-1, A_subblock.send_requests, MPI_STATUSES_IGNORE);
     }
 
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        *A_subblock.descriptor, vecp_subblock,
+        A_subblock.descriptor, vecp_subblock,
         &beta, vecAp_subblock, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        A_subblock.buffersize,
+        &A_subblock.buffersize,
         A_subblock.buffer_d);
 
     // unpack and add it to Ap
@@ -205,14 +205,14 @@ void spmm_split_sparse2(
         Ap_local_d,
         Ap_subblock_d,
         A_subblock.subblock_indices_local_d,
-        A_subblock.count_subblock_h[rank],
+        A_subblock.counts_subblock[rank],
         default_stream
     );        
 
 }
 
 void spmm_split_sparse3(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,    
     double *p_subblock_d,
     double *p_subblock_h,
@@ -235,20 +235,20 @@ void spmm_split_sparse3(
     cudaErrchk(hipEventRecord(A_distributed.event_default_finished, default_stream));
 
     // pack dense sublblock p
-    pack_gpu(p_subblock_d + A_subblock.displ_subblock_h[rank],
+    pack_gpu(p_subblock_d + A_subblock.displacements_subblock[rank],
         p_distributed.vec_d[0],
         A_subblock.subblock_indices_local_d,
-        A_subblock.count_subblock_h[rank],
+        A_subblock.counts_subblock[rank],
         default_stream);
 
     if(size > 1){
         cudaErrchk(hipStreamSynchronize(default_stream));
-        MPI_Iallgatherv(MPI_IN_PLACE, A_subblock.count_subblock_h[rank],
+        MPI_Iallgatherv(MPI_IN_PLACE, A_subblock.counts_subblock[rank],
             MPI_DOUBLE,
             p_subblock_d,
-            A_subblock.count_subblock_h,
-            A_subblock.displ_subblock_h,
-            MPI_DOUBLE, A_distributed.comm, &A_subblock.send_subblock_requests[0]);
+            A_subblock.counts_subblock,
+            A_subblock.displacements_subblock,
+            MPI_DOUBLE, A_distributed.comm, &A_subblock.send_requests[0]);
     }
 
 
@@ -263,7 +263,7 @@ void spmm_split_sparse3(
     }
 
     if(size > 1){
-        MPI_Test(&A_subblock.send_subblock_requests[0], &flag, MPI_STATUS_IGNORE);
+        MPI_Test(&A_subblock.send_requests[0], &flag, MPI_STATUS_IGNORE);
     }
     
     for(int i = 1; i < A_distributed.number_of_neighbours; i++){
@@ -277,7 +277,7 @@ void spmm_split_sparse3(
     }
 
     if(size > 1){
-        MPI_Test(&A_subblock.send_subblock_requests[0], &flag, MPI_STATUS_IGNORE);
+        MPI_Test(&A_subblock.send_requests[0], &flag, MPI_STATUS_IGNORE);
     }
 
     for(int i = 0; i < A_distributed.number_of_neighbours; i++){
@@ -316,7 +316,7 @@ void spmm_split_sparse3(
         if(i < A_distributed.number_of_neighbours-1){
 
             if(size > 1){
-                MPI_Test(&A_subblock.send_subblock_requests[0], &flag, MPI_STATUS_IGNORE);
+                MPI_Test(&A_subblock.send_requests[0], &flag, MPI_STATUS_IGNORE);
             }
 
             MPI_Wait(&A_distributed.recv_requests[i+1], MPI_STATUS_IGNORE);
@@ -331,15 +331,15 @@ void spmm_split_sparse3(
 
 
     if(size > 1){
-        MPI_Wait(&A_subblock.send_subblock_requests[0], MPI_STATUS_IGNORE);
+        MPI_Wait(&A_subblock.send_requests[0], MPI_STATUS_IGNORE);
     }
 
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        *A_subblock.descriptor, vecp_subblock,
+        A_subblock.descriptor, vecp_subblock,
         &beta, vecAp_subblock, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        A_subblock.buffersize,
+        &A_subblock.buffersize,
         A_subblock.buffer_d);
 
     // unpack and add it to Ap
@@ -347,13 +347,13 @@ void spmm_split_sparse3(
         Ap_local_d,
         Ap_subblock_d,
         A_subblock.subblock_indices_local_d,
-        A_subblock.count_subblock_h[rank],
+        A_subblock.counts_subblock[rank],
         default_stream
     );        
 
     if(size > 1){
-        MPI_Waitall(size-1, A_subblock.recv_subblock_requests, MPI_STATUSES_IGNORE);
-        MPI_Waitall(size-1, A_subblock.send_subblock_requests, MPI_STATUSES_IGNORE);
+        MPI_Waitall(size-1, A_subblock.recv_requests, MPI_STATUSES_IGNORE);
+        MPI_Waitall(size-1, A_subblock.send_requests, MPI_STATUSES_IGNORE);
     }
 
 

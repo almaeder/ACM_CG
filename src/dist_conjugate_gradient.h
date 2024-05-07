@@ -34,7 +34,7 @@ void preconditioned_conjugate_gradient(
     Precon &precon);
 
 template <void (*distributed_spmv_split_sparse)
-    (Distributed_subblock_sparse &,
+    (Distributed_subblock &,
     Distributed_matrix &,    
     double *,
     double *,
@@ -48,7 +48,7 @@ template <void (*distributed_spmv_split_sparse)
     rocsparse_handle &),
     typename Precon>
 void preconditioned_conjugate_gradient_split(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,

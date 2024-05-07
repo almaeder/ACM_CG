@@ -3,7 +3,7 @@
 namespace iterative_solver{
 
 template <void (*distributed_spmv_split_sparse)
-    (Distributed_subblock_sparse &,
+    (Distributed_subblock &,
     Distributed_matrix &,    
     double *,
     double *,
@@ -17,7 +17,7 @@ template <void (*distributed_spmv_split_sparse)
     rocsparse_handle &),
     typename Precon>
 void preconditioned_conjugate_gradient_split(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -43,15 +43,14 @@ void preconditioned_conjugate_gradient_split(
     rocsparse_dnvec_descr vecp_subblock;
     rocsparse_dnvec_descr vecAp_subblock;
 
-
     cudaErrchk(hipMalloc((void **)&p_subblock_d,
         A_subblock.subblock_size * sizeof(double)));
     cudaErrchk(hipMalloc((void **)&Ap_subblock_d,
-        A_subblock.count_subblock_h[A_distributed.rank] * sizeof(double)));
+        A_subblock.counts_subblock[A_distributed.rank] * sizeof(double)));
+
     cudaErrchk(hipHostMalloc((void**)&p_subblock_h, A_subblock.subblock_size * sizeof(double)));
     rocsparse_create_dnvec_descr(&vecp_subblock, A_subblock.subblock_size, p_subblock_d, rocsparse_datatype_f64_r);
-    rocsparse_create_dnvec_descr(&vecAp_subblock, A_subblock.count_subblock_h[A_distributed.rank], Ap_subblock_d, rocsparse_datatype_f64_r);
-
+    rocsparse_create_dnvec_descr(&vecAp_subblock, A_subblock.counts_subblock[A_distributed.rank], Ap_subblock_d, rocsparse_datatype_f64_r);
     //copy data to device
     // starting guess for p
     cudaErrchk(hipMemcpy(p_distributed.vec_d[0], x_local_d,
@@ -59,11 +58,11 @@ void preconditioned_conjugate_gradient_split(
     cudaErrchk(hipMemset(A_distributed.Ap_local_d, 0, A_distributed.rows_this_rank * sizeof(double)));
     //begin CG
     // norm of rhs for convergence check
-    
+
     cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, r_local_d, 1, &norm2_rhs));
     MPI_Allreduce(MPI_IN_PLACE, &norm2_rhs, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-    MPI_Barrier(comm);
+
     // A*x0
     distributed_spmv_split_sparse(
         A_subblock,
@@ -79,7 +78,6 @@ void preconditioned_conjugate_gradient_split(
         A_distributed.default_stream,
         A_distributed.default_rocsparseHandle
     );
-
 
     // cal residual r0 = b - A*x0
     // r_norm2_h = r0*r0
@@ -169,7 +167,7 @@ void preconditioned_conjugate_gradient_split(
 }
 template 
 void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse1, Preconditioner_jacobi_split>(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -180,7 +178,7 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     Preconditioner_jacobi_split &precon);
 template 
 void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse2, Preconditioner_jacobi_split>(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -191,7 +189,7 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     Preconditioner_jacobi_split &precon);
 template 
 void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse3, Preconditioner_jacobi_split>(
-    Distributed_subblock_sparse &A_subblock,
+    Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,

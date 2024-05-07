@@ -155,7 +155,7 @@ void test_preconditioned<dspmv::gpu_packing_cam>(
     int number_of_measurements);
 
 template <void (*distributed_spmv_split_sparse)
-    (Distributed_subblock_sparse &,
+    (Distributed_subblock &,
     Distributed_matrix &,    
     double *,
     double *,
@@ -256,16 +256,12 @@ void test_preconditioned_split_sparse(
     hipMalloc(&r_local_d, rows_this_rank * sizeof(double));
     hipMalloc(&x_local_d, rows_this_rank * sizeof(double));
 
-    int *subblock_indices_d;
-    hipMalloc(&subblock_indices_d, subblock_size * sizeof(int));
-    hipMemcpy(subblock_indices_d, subblock_indices_h, subblock_size * sizeof(int), hipMemcpyHostToDevice);
-
-    int *count_subblock = new int[size];
-    int *displ_subblock = new int[size];
+    int *counts_subblock = new int[size];
+    int *displacements_subblock = new int[size];
 
     // split subblock between ranks
     for(int i = 0; i < size; i++){
-        count_subblock[i] = 0;
+        counts_subblock[i] = 0;
     }
     #pragma omp parallel for
     for(int j = 0; j < size; j++){
@@ -275,39 +271,34 @@ void test_preconditioned_split_sparse(
                 tmp++;
             }
         }
-        count_subblock[j] = tmp;
+        counts_subblock[j] = tmp;
     }
-    displ_subblock[0] = 0;
+    displacements_subblock[0] = 0;
     for(int i = 1; i < size; i++){
-        displ_subblock[i] = displ_subblock[i-1] + count_subblock[i-1];
+        displacements_subblock[i] = displacements_subblock[i-1] + counts_subblock[i-1];
     }
 
     // subblock indices of the local vector part
-    int *subblock_indices_local_h = new int[count_subblock[rank]];
+    int *subblock_indices_local_h = new int[counts_subblock[rank]];
     #pragma omp parallel for
-    for(int i = 0; i < count_subblock[rank]; i++){
-        subblock_indices_local_h[i] = subblock_indices_h[displ_subblock[rank] + i] - displacements[rank];
+    for(int i = 0; i < counts_subblock[rank]; i++){
+        subblock_indices_local_h[i] = subblock_indices_h[displacements_subblock[rank] + i] - displacements[rank];
     }
-
-    int *subblock_indices_local_d;
-    hipMalloc(&subblock_indices_local_d, count_subblock[rank] * sizeof(int));
-    hipMemcpy(subblock_indices_local_d, subblock_indices_local_h, count_subblock[rank] * sizeof(int), hipMemcpyHostToDevice);
-
 
     // split subblock by rows
-    int *A_subblock_row_ptr_local_h = new int[count_subblock[rank]+1];
+    int *A_subblock_row_ptr_local_h = new int[counts_subblock[rank]+1];
     #pragma omp parallel for
-    for (int i = 0; i < count_subblock[rank]+1; ++i) {
-        A_subblock_row_ptr_local_h[i] = subblock_row_ptr_h[i+displ_subblock[rank]] - subblock_row_ptr_h[displ_subblock[rank]];
+    for (int i = 0; i < counts_subblock[rank]+1; ++i) {
+        A_subblock_row_ptr_local_h[i] = subblock_row_ptr_h[i+displacements_subblock[rank]] - subblock_row_ptr_h[displacements_subblock[rank]];
     }
 
-    int nnz_local_subblock = A_subblock_row_ptr_local_h[count_subblock[rank]];
+    int nnz_local_subblock = A_subblock_row_ptr_local_h[counts_subblock[rank]];
     double *A_subblock_data_local_h = new double[nnz_local_subblock];
     int *A_subblock_col_indices_local_h = new int[nnz_local_subblock];
     #pragma omp parallel for
     for (int i = 0; i < nnz_local_subblock; ++i) {
-        A_subblock_col_indices_local_h[i] = subblock_col_indices_h[i+subblock_row_ptr_h[displ_subblock[rank]]];
-        A_subblock_data_local_h[i] = subblock_data_h[i+subblock_row_ptr_h[displ_subblock[rank]]];
+        A_subblock_col_indices_local_h[i] = subblock_col_indices_h[i+subblock_row_ptr_h[displacements_subblock[rank]]];
+        A_subblock_data_local_h[i] = subblock_data_h[i+subblock_row_ptr_h[displacements_subblock[rank]]];
     }
 
     double *A_subblock_data_local_d;
@@ -315,102 +306,27 @@ void test_preconditioned_split_sparse(
     int *A_subblock_row_ptr_local_d;
     hipMalloc(&A_subblock_data_local_d, nnz_local_subblock * sizeof(double));
     hipMalloc(&A_subblock_col_indices_local_d, nnz_local_subblock * sizeof(int));
-    hipMalloc(&A_subblock_row_ptr_local_d, (count_subblock[rank]+1) * sizeof(int));
+    hipMalloc(&A_subblock_row_ptr_local_d, (counts_subblock[rank]+1) * sizeof(int));
     hipMemcpy(A_subblock_data_local_d, A_subblock_data_local_h, nnz_local_subblock * sizeof(double), hipMemcpyHostToDevice);
     hipMemcpy(A_subblock_col_indices_local_d, A_subblock_col_indices_local_h, nnz_local_subblock * sizeof(int), hipMemcpyHostToDevice);
-    hipMemcpy(A_subblock_row_ptr_local_d, A_subblock_row_ptr_local_h, (count_subblock[rank]+1) * sizeof(int), hipMemcpyHostToDevice);
-
-    // TODO class for subblock
-    // descriptor for subblock
-    rocsparse_spmat_descr subblock_descriptor;
-    rocsparse_create_csr_descr(&subblock_descriptor,
-                            count_subblock[rank],
-                            subblock_size,
-                            nnz_local_subblock,
-                            A_subblock_row_ptr_local_d,
-                            A_subblock_col_indices_local_d,
-                            A_subblock_data_local_d,
-                            rocsparse_indextype_i32,
-                            rocsparse_indextype_i32,
-                            rocsparse_index_base_zero,
-                            rocsparse_datatype_f64_r);
-
-    double alpha = 1.0;
-    double beta = 0.0;
-    double *tmp_in_d;
-    double *tmp_out_d;
-    hipMalloc(&tmp_in_d, subblock_size * sizeof(double));
-    hipMemset(tmp_in_d, 1, subblock_size * sizeof(double)); //
-    hipMalloc(&tmp_out_d, count_subblock[rank] * sizeof(double));
-
-    rocsparse_dnvec_descr subblock_vector_descriptor_in;
-    rocsparse_dnvec_descr subblock_vector_descriptor_out;
-
-    rocsparse_create_dnvec_descr(&subblock_vector_descriptor_in,
-                                subblock_size,
-                                tmp_in_d,
-                                rocsparse_datatype_f64_r);
-
-    // Create dense vector Y
-    rocsparse_create_dnvec_descr(&subblock_vector_descriptor_out,
-                                count_subblock[rank],
-                                tmp_out_d,
-                                rocsparse_datatype_f64_r);
-
-    size_t subblock_buffersize;
-
-    rocsparse_handle rocsparse_handle;
-    rocsparse_create_handle(&rocsparse_handle);
+    hipMemcpy(A_subblock_row_ptr_local_d, A_subblock_row_ptr_local_h, (counts_subblock[rank]+1) * sizeof(int), hipMemcpyHostToDevice);
 
 
-    rocsparse_spmv_alg algo = rocsparse_spmv_alg_csr_adaptive;
-
-    rocsparse_spmv(rocsparse_handle,
-                rocsparse_operation_none,
-                &alpha,
-                subblock_descriptor,
-                subblock_vector_descriptor_in,
-                &beta,
-                subblock_vector_descriptor_out,
-                rocsparse_datatype_f64_r,
-                algo,
-                &subblock_buffersize,
-                nullptr);
-    
-    rocsparse_destroy_handle(rocsparse_handle);
-
-    hipFree(tmp_in_d);
-    hipFree(tmp_out_d);
-
-    rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_in);
-    rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_out);
-
-    double *subblock_buffer_d;
-    hipMalloc(&subblock_buffer_d, subblock_buffersize);
-
-
-    Distributed_subblock_sparse A_subblock;
-    A_subblock.subblock_indices_local_d = subblock_indices_local_d;
-    A_subblock.descriptor = &subblock_descriptor;
-    A_subblock.algo = algo;
-    A_subblock.buffersize = &subblock_buffersize;
-    A_subblock.buffer_d = subblock_buffer_d;
-    A_subblock.subblock_size = subblock_size;
-    A_subblock.count_subblock_h = count_subblock;
-    A_subblock.displ_subblock_h = displ_subblock;
-    A_subblock.send_subblock_requests = new MPI_Request[size-1];
-    A_subblock.recv_subblock_requests = new MPI_Request[size-1];
-    A_subblock.streams_recv_subblock = new hipStream_t[size-1];
-
-
-
-    for(int i = 0; i < size-1; i++){
-        hipStreamCreate(&A_subblock.streams_recv_subblock[i]);
-    }
-    A_subblock.events_recv_subblock = new hipEvent_t[size];
-    for(int i = 0; i < size; i++){
-        hipEventCreateWithFlags(&A_subblock.events_recv_subblock[i], hipEventDisableTiming);
-    }
+    Distributed_subblock A_subblock(
+        matrix_size,
+        subblock_indices_local_h,
+        subblock_size,
+        counts,
+        displacements,
+        counts_subblock,
+        displacements_subblock,
+        nnz_local_subblock,
+        A_subblock_data_local_d,
+        A_subblock_row_ptr_local_d,
+        A_subblock_col_indices_local_d,
+        rocsparse_spmv_alg_csr_adaptive,
+        comm
+    );
 
     for(int i = 0; i < number_of_measurements; i++){
 
@@ -425,12 +341,12 @@ void test_preconditioned_split_sparse(
 
         Preconditioner_jacobi_split precon(
             A_distributed,
-            count_subblock[rank],
-            subblock_indices_local_d,
+            counts_subblock[rank],
+            A_subblock.subblock_indices_local_d,
             A_subblock_row_ptr_local_d,
             A_subblock_col_indices_local_d,
             A_subblock_data_local_d,
-            displ_subblock[rank]);
+            displacements_subblock[rank]);
         
         iterative_solver::preconditioned_conjugate_gradient_split<distributed_spmv_split_sparse, Preconditioner_jacobi_split>(
             A_subblock,
@@ -453,32 +369,16 @@ void test_preconditioned_split_sparse(
     }
 
 
-    for(int i = 0; i < size-1; i++){
-        hipStreamDestroy(A_subblock.streams_recv_subblock[i]);
-    }
-
-
     //copy solution to host
     cudaErrchk(hipMemcpy(test_solution_h + row_start_index,
         x_local_d, rows_this_rank * sizeof(double), hipMemcpyDeviceToHost));
     // MPI allgatherv of the solution inplace
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, test_solution_h, counts, displacements, MPI_DOUBLE, comm);
 
-    for(int i = 0; i < size; i++){
-        hipEventDestroy(A_subblock.events_recv_subblock[i]);
-    }
 
-    delete[] A_subblock.streams_recv_subblock;
-
-
-    delete[] A_subblock.send_subblock_requests;
-    delete[] A_subblock.recv_subblock_requests;    
-    delete[] A_subblock.events_recv_subblock;
-
-    delete[] count_subblock;
-    delete[] displ_subblock;
+    delete[] counts_subblock;
+    delete[] displacements_subblock;
     delete[] subblock_indices_local_h;
-    hipFree(subblock_indices_local_d);
 
     delete[] row_indptr_local_h;
     delete[] r_local_h;
@@ -486,7 +386,6 @@ void test_preconditioned_split_sparse(
     delete[] data_local_h;
     hipFree(r_local_d);
     hipFree(x_local_d);
-    hipFree(subblock_indices_d);
 
     delete[] A_subblock_row_ptr_local_h;
     delete[] A_subblock_data_local_h;
@@ -494,9 +393,6 @@ void test_preconditioned_split_sparse(
     hipFree(A_subblock_data_local_d);
     hipFree(A_subblock_col_indices_local_d);
     hipFree(A_subblock_row_ptr_local_d);
-
-    hipFree(subblock_buffer_d);
-
 }
 
 template 
