@@ -49,12 +49,7 @@ void Preconditioner_jacobi::apply_preconditioner(
 
 Preconditioner_jacobi_split::Preconditioner_jacobi_split(
     Distributed_matrix &A_distributed,
-    int subblock_rows_size,
-    int *subblock_indices_d,
-    int *subblock_row_ptr_d,
-    int *subblock_col_indices_d,
-    double *subblock_data_d,
-    int displ_subblock_this_rank
+    Distributed_subblock &A_subblock_distributed
 ){
     rows_this_rank = A_distributed.rows_this_rank;
     cudaErrchk(hipMalloc(&diag_inv_d, rows_this_rank*sizeof(double)));
@@ -67,13 +62,13 @@ Preconditioner_jacobi_split::Preconditioner_jacobi_split(
         rows_this_rank
     );
     extract_add_subblock_diagonal(
-        subblock_indices_d,
-        subblock_row_ptr_d,
-        subblock_col_indices_d,
-        subblock_data_d,
+        A_subblock_distributed.subblock_indices_local_d,
+        A_subblock_distributed.row_ptr_compressed_d,
+        A_subblock_distributed.col_indices_compressed_d,
+        A_subblock_distributed.data_d,
         diag_inv_d,
-        subblock_rows_size,
-        displ_subblock_this_rank
+        A_subblock_distributed.counts_subblock[A_subblock_distributed.rank],
+        A_subblock_distributed.displacements_subblock[A_subblock_distributed.rank]
     );
     inv_inplace(
         diag_inv_d,

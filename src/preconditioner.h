@@ -53,12 +53,7 @@ class Preconditioner_jacobi_split : public Preconditioner{
     public:
         Preconditioner_jacobi_split(
             Distributed_matrix &A_distributed,
-            int subblock_rows_size,
-            int *subblock_indices_d,
-            int *subblock_row_ptr_d,
-            int *subblock_col_indices_d,
-            double *subblock_data_d,
-            int displ_subblock_this_rank
+            Distributed_subblock &A_subblock_distributed
         );
         ~Preconditioner_jacobi_split();
 

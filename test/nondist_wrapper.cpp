@@ -341,12 +341,7 @@ void test_preconditioned_split_sparse(
 
         Preconditioner_jacobi_split precon(
             A_distributed,
-            counts_subblock[rank],
-            A_subblock.subblock_indices_local_d,
-            A_subblock_row_ptr_local_d,
-            A_subblock_col_indices_local_d,
-            A_subblock_data_local_d,
-            displacements_subblock[rank]);
+            A_subblock);
         
         iterative_solver::preconditioned_conjugate_gradient_split<distributed_spmv_split_sparse, Preconditioner_jacobi_split>(
             A_subblock,
