@@ -315,6 +315,7 @@ void test_preconditioned_split_sparse(
     Distributed_subblock A_subblock(
         matrix_size,
         subblock_indices_local_h,
+        subblock_indices_h,
         subblock_size,
         counts,
         displacements,

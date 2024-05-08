@@ -18,7 +18,6 @@ Distributed_matrix::Distributed_matrix(
     this->matrix_size = matrix_size;
     this->nnz = nnz;
     this->comm = comm;
-    step_count = 0;
     this->counts = new int[size];
     this->displacements = new int[size];
     for(int i = 0; i < size; i++){
@@ -84,7 +83,6 @@ Distributed_matrix::Distributed_matrix(
     this->matrix_size = matrix_size;
     this->comm = comm;
     this->number_of_neighbours = number_of_neighbours;
-    step_count = 0;
 
     nnz = 0;
     rows_this_rank = counts_in[rank];
@@ -217,14 +215,7 @@ Distributed_matrix::~Distributed_matrix(){
     delete[] events_send;
     cudaErrchk(hipEventDestroy(event_default_finished));
 
-    for (int i = 0; i < number_of_neighbours; i++){
-        rocsparse_destroy_mat_descr(descr_low[i]);
-        rocsparse_destroy_mat_info(infos_low[i]);
-    }
-
     delete[] algos_generic;
-    delete[] infos_low;
-    delete[] descr_low;
 
     destroy_cg_overhead();
 
@@ -598,10 +589,6 @@ void Distributed_matrix::prepare_spmv(
     //     algos_generic[k] = rocsparse_spmv_alg_csr_stream;
     // }
 
-    infos_low = new rocsparse_mat_info[number_of_neighbours];
-    descr_low = new rocsparse_mat_descr[number_of_neighbours];
-
-
 
     for(int k = 0; k < number_of_neighbours; k++){
         int neighbour_idx = neighbours[k];
@@ -653,21 +640,6 @@ void Distributed_matrix::prepare_spmv(
         rocsparse_destroy_dnvec_descr(vec_out);
         cudaErrchk(hipFree(vec_in_d));
         cudaErrchk(hipFree(vec_out_d));
-
-        rocsparse_create_mat_descr(&descr_low[k]);
-        rocsparse_create_mat_info(&infos_low[k]);
-
-        rocsparse_dcsrmv_analysis(
-            rocsparseHandle,
-            rocsparse_operation_none,
-            rows_this_rank,
-            counts[neighbour_idx],
-            nnz_per_neighbour[k],
-            descr_low[k],
-            data_d[k],
-            row_ptr_d[k],
-            col_indices_d[k],
-            infos_low[k]);
 
     }
 

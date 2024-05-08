@@ -180,6 +180,15 @@ int main(int argc, char **argv) {
         // check matrices the same
         double *dense_tot = new double[matrix_size * matrix_size];
         double *dense_split = new double[matrix_size * matrix_size];
+        // double *dense_split2 = new double[matrix_size * matrix_size];
+
+        // std::string row_ptr_subblock_filename2 = "tmp_row_ptr.bin";
+        // std::string col_indices_subblock_filename2 = "tmp_col_indices.bin";
+        // int *row_ptr_subblock2 = new int[matrix_size+1];
+        // int *col_indices_subblock2 = new int[nnz_subblock];
+        // load_binary_array<int>(row_ptr_subblock_filename2, row_ptr_subblock2, matrix_size+1);
+        // load_binary_array<int>(col_indices_subblock_filename2, col_indices_subblock2, nnz_subblock);
+
         for (int i = 0; i < matrix_size; ++i) {
             for (int j = 0; j < matrix_size; ++j) {
                 dense_tot[i * matrix_size + j] = 0.0;
@@ -201,6 +210,17 @@ int main(int argc, char **argv) {
                 dense_split[subblock_indices[i] * matrix_size + subblock_indices[col_indices_subblock[j]]] += data_subblock[j];
             }
         }
+        // for (int i = 0; i < matrix_size; ++i) {
+        //     for (int j = row_ptr_sparse[i]; j < row_ptr_sparse[i+1]; ++j) {
+        //         dense_split2[i * matrix_size + col_indices_sparse[j]] = data_sparse[j];
+        //     }
+        // }
+        // for (int i = 0; i < matrix_size; ++i) {
+        //     for (int j = row_ptr_subblock2[i]; j < row_ptr_subblock2[i+1]; ++j) {
+        //         dense_split2[i * matrix_size + col_indices_subblock2[j]] += data_subblock[j];
+        //     }
+        // }
+
 
         double sum_matrix = 0.0;
         double diff_matrix = 0.0;
@@ -223,9 +243,9 @@ int main(int argc, char **argv) {
         }
         delete[] dense_tot;
         delete[] dense_split;
+        // delete[] dense_split2;
     }
     MPI_Barrier(MPI_COMM_WORLD);
-
 
     int start_up_measurements = 0;
     int true_number_of_measurements = 1;

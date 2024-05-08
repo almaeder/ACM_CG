@@ -1,5 +1,7 @@
 #pragma once
 #include <hip/hip_runtime.h>
+#include <iostream>
+#include <fstream>
 
 void extract_diagonal_inv(
     double *data,
@@ -32,26 +34,39 @@ void inv_inplace(
     int size
 );
 
-void pack_gpu(
+void expand_row_ptr(
+    int *row_ptr_d,
+    int *row_ptr_compressed_d,
+    int *subblock_indices_local_d,
+    int matrix_size,
+    int subblock_size_local);
+void expand_col_indices(
+    int *col_indices_d,
+    int *col_indices_compressed_d,
+    int *subblock_indices_d,
+    int nnz,
+    int subblock_size);
+
+void pack(
     double *packed_buffer,
     double *unpacked_buffer,
     int *indices,
     int number_of_elements);
 
-void pack_gpu(
+void pack(
     double *packed_buffer,
     double *unpacked_buffer,
     int *indices,
     int number_of_elements,
     hipStream_t stream);
 
-void unpack_gpu(
+void unpack(
     double *unpacked_buffer,
     double *packed_buffer,
     int *indices,
     int number_of_elements);
 
-void unpack_gpu(
+void unpack(
     double *unpacked_buffer,
     double *packed_buffer,
     int *indices,

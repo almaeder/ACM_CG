@@ -37,3 +37,4 @@ select_gpu
 **/core
 *.png
 *.jpg
+*.bin

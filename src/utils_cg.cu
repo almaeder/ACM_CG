@@ -147,7 +147,81 @@ void inv_inplace(
     );
 }
 
-__global__ void _pack_gpu(
+
+// template <typename T>
+// void save_bin_array2(T* array, int numElements, const std::string& filename) {
+//     std::ofstream file(filename, std::ios::binary);
+//     if (file.is_open()) {
+//         file.write(reinterpret_cast<char*>(array), numElements*sizeof(T));
+//         file.close();
+//         std::cout << "Array data written to file: " << filename << std::endl;
+//     } else {
+//         std::cerr << "Unable to open the file for writing." << std::endl;
+//     }
+// }
+
+void expand_row_ptr(
+    int *row_ptr_d,
+    int *row_ptr_compressed_d,
+    int *subblock_indices_local_d,
+    int matrix_size,
+    int subblock_size_local
+){
+    int *row_ptr_h = new int[matrix_size+1];
+    int *row_ptr_compressed_h = new int[subblock_size_local+1];
+    int *subblock_indices_local_h = new int[subblock_size_local];
+
+    hipMemcpy(row_ptr_compressed_h, row_ptr_compressed_d, (subblock_size_local+1)*sizeof(int), hipMemcpyDeviceToHost);
+    hipMemcpy(subblock_indices_local_h, subblock_indices_local_d, (subblock_size_local)*sizeof(int), hipMemcpyDeviceToHost);
+
+    for(int i = 0; i < matrix_size+1; i++){
+        row_ptr_h[i] = 0;
+    }
+    row_ptr_h[matrix_size] = row_ptr_compressed_h[subblock_size_local];
+    for(int i = 0; i < subblock_size_local; i++){
+        if(i == subblock_size_local-1){
+            for(int j = subblock_indices_local_h[i]+1; j < matrix_size+1; j++){
+                row_ptr_h[j] = row_ptr_compressed_h[i+1];
+            }
+        }
+        else{
+            for(int j = subblock_indices_local_h[i]+1; j <  subblock_indices_local_h[i+1]+1; j++){
+                row_ptr_h[j] = row_ptr_compressed_h[i+1];
+            }
+        }
+    }
+    // std::string filename = "tmp_row_ptr.bin";
+    // save_bin_array2<int>(row_ptr_h, matrix_size+1, filename);
+
+    hipMemcpy(row_ptr_d, row_ptr_h, (matrix_size+1)*sizeof(int), hipMemcpyHostToDevice);
+
+}
+void expand_col_indices(
+    int *col_indices_d,
+    int *col_indices_compressed_d,
+    int *subblock_indices_d,
+    int nnz,
+    int subblock_size
+){
+    int *col_indices_h = new int[nnz];
+    int *col_indices_compressed_h = new int[nnz];
+    int *subblock_indices_h = new int[subblock_size];
+
+    hipMemcpy(col_indices_compressed_h, col_indices_compressed_d, (nnz)*sizeof(int), hipMemcpyDeviceToHost);
+    hipMemcpy(subblock_indices_h, subblock_indices_d, (subblock_size)*sizeof(int), hipMemcpyDeviceToHost);
+
+    for(int i = 0; i < nnz; i++){
+        col_indices_h[i] = subblock_indices_h[col_indices_compressed_h[i]];
+    }
+
+    // std::string filename = "tmp_col_indices.bin";
+    // save_bin_array2<int>(col_indices_h, nnz, filename);
+    hipMemcpy(col_indices_d, col_indices_h, (nnz)*sizeof(int), hipMemcpyHostToDevice);
+
+}
+
+
+__global__ void _pack(
     double *packed_buffer,
     double *unpacked_buffer,
     int *indices,
@@ -160,7 +234,7 @@ __global__ void _pack_gpu(
     }
 }
 
-void pack_gpu(
+void pack(
     double *packed_buffer,
     double *unpacked_buffer,
     int *indices,
@@ -169,7 +243,7 @@ void pack_gpu(
 {
     int block_size = 32;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
-    hipLaunchKernelGGL(_pack_gpu, num_blocks, block_size, 0, 0, 
+    hipLaunchKernelGGL(_pack, num_blocks, block_size, 0, 0, 
         packed_buffer,
         unpacked_buffer,
         indices,
@@ -177,7 +251,7 @@ void pack_gpu(
     );
 }
 
-void pack_gpu(
+void pack(
     double *packed_buffer,
     double *unpacked_buffer,
     int *indices,
@@ -187,7 +261,7 @@ void pack_gpu(
 {
     int block_size = 32;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
-    hipLaunchKernelGGL(_pack_gpu, num_blocks, block_size, 0, stream, 
+    hipLaunchKernelGGL(_pack, num_blocks, block_size, 0, stream, 
         packed_buffer,
         unpacked_buffer,
         indices,
@@ -195,7 +269,7 @@ void pack_gpu(
     );
 }
 
-__global__ void _unpack_gpu(
+__global__ void _unpack(
     double *unpacked_buffer,
     double *packed_buffer,
     int *indices,
@@ -208,7 +282,7 @@ __global__ void _unpack_gpu(
     }
 }
 
-void unpack_gpu(
+void unpack(
     double *unpacked_buffer,
     double *packed_buffer,
     int *indices,
@@ -217,7 +291,7 @@ void unpack_gpu(
 {
     int block_size = 32;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
-    hipLaunchKernelGGL(_unpack_gpu, num_blocks, block_size, 0, 0, 
+    hipLaunchKernelGGL(_unpack, num_blocks, block_size, 0, 0, 
         unpacked_buffer,
         packed_buffer,
         indices,
@@ -225,7 +299,7 @@ void unpack_gpu(
     );
 }
 
-void unpack_gpu(
+void unpack(
     double *unpacked_buffer,
     double *packed_buffer,
     int *indices,
@@ -235,7 +309,7 @@ void unpack_gpu(
 {
     int block_size = 32;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
-    hipLaunchKernelGGL(_unpack_gpu, num_blocks, block_size, 0, stream, 
+    hipLaunchKernelGGL(_unpack, num_blocks, block_size, 0, stream, 
         unpacked_buffer,
         packed_buffer,
         indices,

@@ -7,6 +7,7 @@
 #include "cudaerrchk.h"
 #include <unistd.h>
 #include <rocsparse.h>
+#include "utils_cg.h"
 
 class Distributed_vector{
     public:
@@ -44,6 +45,7 @@ class Distributed_subblock{
         MPI_Comm comm;
 
         int matrix_size;
+        int *subblock_indices_d;
         int *subblock_indices_local_d;
         int subblock_size;
 
@@ -52,14 +54,19 @@ class Distributed_subblock{
 
         int nnz;
         double *data_d;
-        int *row_ptr_d;
+        int *row_uncompressed_d;
         int *row_ptr_compressed_d;
-        int *col_indices_d;
+        int *col_indices_uncompressed_d;
         int *col_indices_compressed_d;
         
         rocsparse_spmat_descr descriptor;
         size_t buffersize;
         double *buffer_d;
+
+        rocsparse_spmat_descr descriptor_uncompressed;
+        size_t buffersize_uncompressed;
+        double *buffer_uncompressed_d;
+
         rocsparse_spmv_alg algo;
 
         hipEvent_t *events_recv;
@@ -70,6 +77,7 @@ class Distributed_subblock{
         Distributed_subblock(
             int matrix_size,
             int *subblock_indices_local_h,
+            int *subblock_indices_h,
             int subblock_size,
             int *counts,
             int *displacements,
@@ -125,11 +133,7 @@ class Distributed_matrix{
         int **col_indices_d;
         int **row_ptr_d;
         rocsparse_spmat_descr *descriptors;
-        // rocsparse_spmv_alg algo;
         rocsparse_spmv_alg *algos_generic;
-
-        rocsparse_mat_info *infos_low;
-        rocsparse_mat_descr *descr_low;
 
         // Data types for MPI
         // assumes symmetric matrix
@@ -176,8 +180,6 @@ class Distributed_matrix{
         double *Ap_local_d;
         rocsparse_dnvec_descr vecAp_local;
         double *z_local_d;
-
-        int step_count;
 
     // construct the distributed matrix
     // input is the whol count[rank] * matrix size

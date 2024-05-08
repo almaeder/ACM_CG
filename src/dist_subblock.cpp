@@ -3,6 +3,7 @@
 Distributed_subblock::Distributed_subblock(
     int matrix_size,
     int *subblock_indices_local_h,
+    int *subblock_indices_h,
     int subblock_size,
     int *counts,
     int *displacements,
@@ -37,7 +38,8 @@ Distributed_subblock::Distributed_subblock(
     // subblock indices of the local vector part
     cudaErrchk(hipMalloc(&subblock_indices_local_d, counts_subblock[rank] * sizeof(int)));
     cudaErrchk(hipMemcpy(subblock_indices_local_d, subblock_indices_local_h, counts_subblock[rank] * sizeof(int), hipMemcpyHostToDevice));
-
+    cudaErrchk(hipMalloc(&subblock_indices_d, subblock_size * sizeof(int)));
+    cudaErrchk(hipMemcpy(subblock_indices_d, subblock_indices_h, subblock_size* sizeof(int), hipMemcpyHostToDevice));
 
     cudaErrchk(hipMalloc(&(this->data_d), nnz * sizeof(double)));
     cudaErrchk(hipMalloc(&(this->col_indices_compressed_d), nnz * sizeof(int)));
@@ -45,6 +47,24 @@ Distributed_subblock::Distributed_subblock(
     cudaErrchk(hipMemcpy((this->data_d), data_d, nnz * sizeof(double), hipMemcpyDeviceToDevice));
     cudaErrchk(hipMemcpy((this->col_indices_compressed_d), col_indices_compressed_d, nnz * sizeof(int), hipMemcpyDeviceToDevice));
     cudaErrchk(hipMemcpy((this->row_ptr_compressed_d), row_ptr_compressed_d, (counts_subblock[rank]+1) * sizeof(int), hipMemcpyDeviceToDevice));
+
+    cudaErrchk(hipMalloc(&(col_indices_uncompressed_d), nnz * sizeof(int)));
+    cudaErrchk(hipMalloc(&(row_uncompressed_d), (matrix_size+1) * sizeof(int)));
+
+    expand_row_ptr(
+        row_uncompressed_d,
+        row_ptr_compressed_d,
+        subblock_indices_local_d,
+        matrix_size,
+        counts_subblock[rank]
+    );
+    expand_col_indices(
+        col_indices_uncompressed_d,
+        col_indices_compressed_d,
+        subblock_indices_d,
+        nnz,
+        subblock_size
+    );
 
     // descriptor for subblock
     rocsparse_create_csr_descr(&descriptor,
@@ -97,13 +117,62 @@ Distributed_subblock::Distributed_subblock(
                 &buffersize,
                 nullptr);
 
-    rocsparse_destroy_handle(rocsparse_handle);
     cudaErrchk(hipFree(tmp_in_d));
     cudaErrchk(hipFree(tmp_out_d));
     rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_in);
     rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_out);
 
     cudaErrchk(hipMalloc(&buffer_d, buffersize));
+
+    // descriptor for subblock
+    rocsparse_create_csr_descr(&descriptor_uncompressed,
+                            counts[rank],
+                            matrix_size,
+                            nnz,
+                            this->row_uncompressed_d,
+                            this->col_indices_uncompressed_d,
+                            this->data_d,
+                            rocsparse_indextype_i32,
+                            rocsparse_indextype_i32,
+                            rocsparse_index_base_zero,
+                            rocsparse_datatype_f64_r);
+    double *tmp_in_d_uncompressed;
+    double *tmp_out_d_uncompressed;
+    cudaErrchk(hipMalloc(&tmp_in_d_uncompressed, matrix_size * sizeof(double)));
+    cudaErrchk(hipMalloc(&tmp_out_d_uncompressed, counts[rank] * sizeof(double)));
+
+    rocsparse_dnvec_descr subblock_vector_descriptor_in_uncompressed;
+    rocsparse_dnvec_descr subblock_vector_descriptor_out_uncompressed;
+
+    rocsparse_create_dnvec_descr(&subblock_vector_descriptor_in_uncompressed,
+                                matrix_size,
+                                tmp_in_d_uncompressed,
+                                rocsparse_datatype_f64_r);
+    rocsparse_create_dnvec_descr(&subblock_vector_descriptor_out_uncompressed,
+                                counts[rank],
+                                tmp_out_d_uncompressed,
+                                rocsparse_datatype_f64_r);
+    rocsparse_spmv(rocsparse_handle,
+                rocsparse_operation_none,
+                &alpha,
+                descriptor_uncompressed,
+                subblock_vector_descriptor_in_uncompressed,
+                &beta,
+                subblock_vector_descriptor_out_uncompressed,
+                rocsparse_datatype_f64_r,
+                algo,
+                &buffersize_uncompressed,
+                nullptr);
+
+    cudaErrchk(hipFree(tmp_in_d_uncompressed));
+    cudaErrchk(hipFree(tmp_out_d_uncompressed));
+    rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_in_uncompressed);
+    rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_out_uncompressed);
+    cudaErrchk(hipMalloc(&buffer_uncompressed_d, buffersize_uncompressed));
+
+
+    rocsparse_destroy_handle(rocsparse_handle);
+
 
     events_recv = new hipEvent_t[size];
     streams_recv = new hipStream_t[size-1];
