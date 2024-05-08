@@ -198,6 +198,17 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     int max_iterations,
     MPI_Comm comm,
     Preconditioner_jacobi_split &precon);
+template 
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse4, Preconditioner_jacobi_split>(
+    Distributed_subblock &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi_split &precon);
 
 
 } // namespace iterative_solver

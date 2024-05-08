@@ -2,8 +2,8 @@
 #SBATCH --job-name=hybrid-small # Job name
 #SBATCH --partition=small-g  # or ju-standard-g, partition name
 #SBATCH --nodes=1               # Total number of nodes  - 1s
-#SBATCH --ntasks-per-node=3    # 8 MPI ranks per node, 8 total (1x8) - 8
-#SBATCH --gpus-per-node=3      # Allocate one gpu per MPI rank - 8
+#SBATCH --ntasks-per-node=1    # 8 MPI ranks per node, 8 total (1x8) - 8
+#SBATCH --gpus-per-node=1      # Allocate one gpu per MPI rank - 8
 #SBATCH --cpus-per-task=7       # 7 cpus per task
 #SBATCH --time=00:20:00         # Run time (d-hh:mm:ss)
 #SBATCH --account=project_465000929

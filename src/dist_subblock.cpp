@@ -66,8 +66,8 @@ Distributed_subblock::Distributed_subblock(
         subblock_size
     );
 
-    // descriptor for subblock
-    rocsparse_create_csr_descr(&descriptor,
+    // descriptor_compressed for subblock
+    rocsparse_create_csr_descr(&descriptor_compressed,
                             counts_subblock[rank],
                             subblock_size,
                             nnz,
@@ -108,13 +108,13 @@ Distributed_subblock::Distributed_subblock(
     rocsparse_spmv(rocsparse_handle,
                 rocsparse_operation_none,
                 &alpha,
-                descriptor,
+                descriptor_compressed,
                 subblock_vector_descriptor_in,
                 &beta,
                 subblock_vector_descriptor_out,
                 rocsparse_datatype_f64_r,
                 algo,
-                &buffersize,
+                &buffersize_compressed,
                 nullptr);
 
     cudaErrchk(hipFree(tmp_in_d));
@@ -122,9 +122,9 @@ Distributed_subblock::Distributed_subblock(
     rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_in);
     rocsparse_destroy_dnvec_descr(subblock_vector_descriptor_out);
 
-    cudaErrchk(hipMalloc(&buffer_d, buffersize));
+    cudaErrchk(hipMalloc(&buffer_compressed_d, buffersize_compressed));
 
-    // descriptor for subblock
+    // descriptor_compressed for subblock
     rocsparse_create_csr_descr(&descriptor_uncompressed,
                             counts[rank],
                             matrix_size,
@@ -212,6 +212,6 @@ Distributed_subblock::~Distributed_subblock(){
     hipFree(col_indices_compressed_d);
     hipFree(row_ptr_compressed_d);
 
-    hipFree(buffer_d);
-    rocsparse_destroy_spmat_descr(descriptor);
+    hipFree(buffer_compressed_d);
+    rocsparse_destroy_spmat_descr(descriptor_compressed);
 };

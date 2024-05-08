@@ -24,6 +24,9 @@ class Distributed_vector{
         double **vec_h;
         double **vec_d;
         rocsparse_dnvec_descr *descriptors;
+        double *tot_vec_h;
+        double *tot_vec_d;
+        rocsparse_dnvec_descr descriptor;
 
     Distributed_vector(
         int matrix_size,
@@ -59,9 +62,9 @@ class Distributed_subblock{
         int *col_indices_uncompressed_d;
         int *col_indices_compressed_d;
         
-        rocsparse_spmat_descr descriptor;
-        size_t buffersize;
-        double *buffer_d;
+        rocsparse_spmat_descr descriptor_compressed;
+        size_t buffersize_compressed;
+        double *buffer_compressed_d;
 
         rocsparse_spmat_descr descriptor_uncompressed;
         size_t buffersize_uncompressed;

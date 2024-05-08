@@ -60,11 +60,11 @@ void spmm_split_sparse1(
 
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        A_subblock.descriptor, vecp_subblock,
+        A_subblock.descriptor_compressed, vecp_subblock,
         &beta, vecAp_subblock, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        &A_subblock.buffersize,
-        A_subblock.buffer_d);
+        &A_subblock.buffersize_compressed,
+        A_subblock.buffer_compressed_d);
 
     // unpack and add it to Ap
     unpack_add(
@@ -194,11 +194,11 @@ void spmm_split_sparse2(
 
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        A_subblock.descriptor, vecp_subblock,
+        A_subblock.descriptor_compressed, vecp_subblock,
         &beta, vecAp_subblock, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        &A_subblock.buffersize,
-        A_subblock.buffer_d);
+        &A_subblock.buffersize_compressed,
+        A_subblock.buffer_compressed_d);
 
     // unpack and add it to Ap
     unpack_add(
@@ -336,11 +336,11 @@ void spmm_split_sparse3(
 
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        A_subblock.descriptor, vecp_subblock,
+        A_subblock.descriptor_compressed, vecp_subblock,
         &beta, vecAp_subblock, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        &A_subblock.buffersize,
-        A_subblock.buffer_d);
+        &A_subblock.buffersize_compressed,
+        A_subblock.buffer_compressed_d);
 
     // unpack and add it to Ap
     unpack_add(
@@ -415,22 +415,19 @@ void spmm_split_sparse4(
         MPI_Waitall(size-1, A_subblock.send_requests, MPI_STATUSES_IGNORE);
     }
 
+    unpack(
+        p_distributed.tot_vec_d, p_subblock_d,
+        A_subblock.subblock_indices_d,
+        A_subblock.subblock_size,
+        default_stream
+    );
     rocsparse_spmv(
         default_rocsparseHandle, rocsparse_operation_none, &alpha,
-        A_subblock.descriptor, vecp_subblock,
-        &beta, vecAp_subblock, rocsparse_datatype_f64_r,
+        A_subblock.descriptor_uncompressed, p_distributed.descriptor,
+        &alpha, vecAp_local, rocsparse_datatype_f64_r,
         A_subblock.algo,
-        &A_subblock.buffersize,
-        A_subblock.buffer_d);
-
-    // unpack and add it to Ap
-    unpack_add(
-        Ap_local_d,
-        Ap_subblock_d,
-        A_subblock.subblock_indices_local_d,
-        A_subblock.counts_subblock[rank],
-        default_stream
-    );     
+        &A_subblock.buffersize_compressed,
+        A_subblock.buffer_compressed_d);
 
 }
 

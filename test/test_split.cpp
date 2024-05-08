@@ -248,13 +248,13 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     int start_up_measurements = 0;
-    int true_number_of_measurements = 1;
+    int true_number_of_measurements = 4;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
     double time_tot[number_of_measurements];
     double time_split_sparse1[number_of_measurements];
     double time_split_sparse2[number_of_measurements];
     double time_split_sparse3[number_of_measurements];
-
+    double time_split_sparse4[number_of_measurements];
 
     double *test_solution_tot_h = new double[matrix_size];
 
@@ -318,6 +318,41 @@ int main(int argc, char **argv) {
         std::cout << "difference/sum_ref split1 " << difference/sum_ref << std::endl;
     }
     
+    double *test_solution_split4_h = new double[matrix_size];
+
+    test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse4>(
+            data_sparse,
+            col_indices_sparse,
+            row_ptr_sparse,
+            subblock_indices,
+            data_subblock,
+            col_indices_subblock,
+            row_ptr_subblock,
+            subblock_size,
+            rhs,
+            starting_guess_h,
+            test_solution_split4_h,
+            matrix_size,
+            relative_tolerance,
+            max_iterations,
+            MPI_COMM_WORLD,
+            time_split_sparse4,
+            number_of_measurements
+    );
+
+
+    if(rank == 0){
+        double difference = 0;
+        double sum_ref = 0;
+        for (int i = 0; i < matrix_size; ++i) {
+            difference += std::sqrt( (test_solution_split4_h[i] - reference_solution[i]) *
+                (test_solution_split4_h[i] - reference_solution[i]) );
+            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+        }
+        std::cout << "difference/sum_ref split4 " << difference/sum_ref << std::endl;
+    }
+    
+
     delete[] data_sparse;
     delete[] row_ptr_sparse;
     delete[] col_indices_sparse;

@@ -39,6 +39,13 @@ Distributed_vector::Distributed_vector(
             &descriptors[k], counts[neighbour_idx], vec_d[k], rocsparse_datatype_f64_r);
 
     }
+
+    cudaErrchk(hipHostMalloc(&tot_vec_h, matrix_size*sizeof(double)));
+    cudaErrchk(hipMalloc(&tot_vec_d, matrix_size*sizeof(double)));
+    cudaErrchk(hipMemset(tot_vec_d, 0, matrix_size*sizeof(double)));
+    rocsparse_create_dnvec_descr(
+        &descriptor, matrix_size, tot_vec_d, rocsparse_datatype_f64_r);
+
 }
 
 Distributed_vector::~Distributed_vector(){
