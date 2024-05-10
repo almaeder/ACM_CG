@@ -20,9 +20,9 @@ Preconditioner_jacobi::Preconditioner_jacobi(
     rows_this_rank = A_distributed.rows_this_rank;
     cudaErrchk(hipMalloc(&diag_inv_d, rows_this_rank*sizeof(double)));
     extract_diagonal_inv(
-        A_distributed.data_d[0],
-        A_distributed.col_indices_d[0],
-        A_distributed.row_ptr_d[0],
+        A_distributed.datas_d[0],
+        A_distributed.col_inds_d[0],
+        A_distributed.row_ptrs_d[0],
         diag_inv_d,
         rows_this_rank
     );
@@ -55,9 +55,9 @@ Preconditioner_jacobi_split::Preconditioner_jacobi_split(
     cudaErrchk(hipMalloc(&diag_inv_d, rows_this_rank*sizeof(double)));
     cudaErrchk(hipMemset(diag_inv_d, 0, rows_this_rank*sizeof(double)))
     extract_diagonal(
-        A_distributed.data_d[0],
-        A_distributed.col_indices_d[0],
-        A_distributed.row_ptr_d[0],
+        A_distributed.datas_d[0],
+        A_distributed.col_inds_d[0],
+        A_distributed.row_ptrs_d[0],
         diag_inv_d,
         rows_this_rank
     );

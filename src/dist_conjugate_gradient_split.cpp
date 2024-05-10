@@ -155,7 +155,7 @@ void preconditioned_conjugate_gradient_split(
     //end CG
     cudaErrchk(hipDeviceSynchronize());
     if(A_distributed.rank == 0){
-        std::cout << "iteration (T) = " << k << ", relative residual = " << sqrt(r_norm2_h[0]/norm2_rhs) << std::endl;
+        std::cout << "iteration = " << k << ", relative residual = " << sqrt(r_norm2_h[0]/norm2_rhs) << std::endl;
     }
 
     cudaErrchk(hipFree(p_subblock_d));

@@ -130,13 +130,21 @@ class Distributed_matrix{
         int **row_ptr_h;
 
         // Data types for cuSPARSE
-        size_t *buffer_size;
-        double **buffer_d;
-        double **data_d;
-        int **col_indices_d;
-        int **row_ptr_d;
+        size_t *buffers_size;
+        double **buffers_d;
+        double **datas_d;
+        int **col_inds_d;
+        int **row_ptrs_d;
         rocsparse_spmat_descr *descriptors;
         rocsparse_spmv_alg *algos_generic;
+
+        size_t buffer_size;
+        double *buffer_d;
+        double *data_d;
+        int *col_ind_d;
+        int *row_ptr_d;
+        rocsparse_spmat_descr descriptor;
+        rocsparse_spmv_alg algo_generic;
 
         // Data types for MPI
         // assumes symmetric matrix
@@ -192,9 +200,9 @@ class Distributed_matrix{
         int nnz,
         int *counts,
         int *displacements,
-        int *col_indices_in,
-        int *row_ptr_in,
-        double *data_in,
+        int *col_ind_in_h,
+        int *row_ptr_in_h,
+        double *data_in_h,
         rocsparse_spmv_alg *algos,
         MPI_Comm comm);
 
@@ -218,22 +226,22 @@ class Distributed_matrix{
 
     private:
         void find_neighbours(
-            int *col_indices_in,
-            int *row_ptr_in
+            int *col_ind_in_h,
+            int *row_ptr_in_h
         );
 
         void construct_neighbours_list(
         );
 
         void construct_nnz_per_neighbour(
-            int *col_indices_in,
-            int *row_ptr_in
+            int *col_ind_in_h,
+            int *row_ptr_in_h
         );
 
         void split_csr(
-            int *col_indices_in,
-            int *row_ptr_in,
-            double *data_in
+            int *col_ind_in_h,
+            int *row_ptr_in_h,
+            double *data_in_h
         );
 
         

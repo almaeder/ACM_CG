@@ -38,3 +38,5 @@ select_gpu
 *.png
 *.jpg
 *.bin
+
+rank_*

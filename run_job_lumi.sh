@@ -1,9 +1,9 @@
 #!/bin/bash -l
 #SBATCH --job-name=hybrid-small # Job name
-#SBATCH --partition=small-g  # or ju-standard-g, partition name
+#SBATCH --partition=standard-g  # or ju-standard-g, partition name
 #SBATCH --nodes=1               # Total number of nodes  - 1s
-#SBATCH --ntasks-per-node=1    # 8 MPI ranks per node, 8 total (1x8) - 8
-#SBATCH --gpus-per-node=1      # Allocate one gpu per MPI rank - 8
+#SBATCH --ntasks-per-node=8    # 8 MPI ranks per node, 8 total (1x8) - 8
+#SBATCH --gpus-per-node=8      # Allocate one gpu per MPI rank - 8
 #SBATCH --cpus-per-task=7       # 7 cpus per task
 #SBATCH --time=00:20:00         # Run time (d-hh:mm:ss)
 #SBATCH --account=project_465000929
@@ -83,7 +83,6 @@ exec \$*
 EOF
 chmod +x ./select_gpu
 
-# srun python3 test/test.py
-srun ./select_gpu build/test_split
-# srun --cpu-bind=${CPU_BIND} ./select_gpu ./build/test
-# srun --cpu-bind=${CPU_BIND} ./wrapper.sh --hip-trace  ./build/test
+# srun ./select_gpu build/test
+srun --cpu-bind=${CPU_BIND} ./select_gpu ./build/test
+# srun --cpu-bind=${CPU_BIND} ./wrapper.sh --hip-trace ./select_gpu ./build/test

@@ -93,7 +93,7 @@ void test_preconditioned(
         auto time_start = std::chrono::high_resolution_clock::now();
 
         Preconditioner_jacobi precon(A_distributed);
-        iterative_solver::preconditioned_conjugate_gradient<dspmv::gpu_packing, Preconditioner_jacobi>(
+        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_jacobi>(
             A_distributed,
             p_distributed,
             r_local_d,
@@ -107,7 +107,7 @@ void test_preconditioned(
         hipDeviceSynchronize();
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_end = std::chrono::high_resolution_clock::now();
-        time_taken[i] += std::chrono::duration<double>(time_end - time_start).count();
+        time_taken[i] = std::chrono::duration<double>(time_end - time_start).count();
         if(rank == 0){
             std::cout << rank << " time_taken["<<i<<"] " << time_taken[i] << std::endl;
         }
@@ -126,7 +126,7 @@ void test_preconditioned(
     hipFree(x_local_d);
 }
 template 
-void test_preconditioned<dspmv::gpu_packing>(
+void test_preconditioned<dspmv::alltoall_cam>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -140,7 +140,35 @@ void test_preconditioned<dspmv::gpu_packing>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::gpu_packing_cam>(
+void test_preconditioned<dspmv::pointpoint_singlekernel_cam>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_cam>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -154,7 +182,7 @@ void test_preconditioned<dspmv::gpu_packing_cam>(
     double *time_taken,
     int number_of_measurements);
 
-template <void (*distributed_spmv_split_sparse)
+template <void (*distributed_spmv_split)
     (Distributed_subblock &,
     Distributed_matrix &,    
     double *,
@@ -331,6 +359,7 @@ void test_preconditioned_split_sparse(
 
     for(int i = 0; i < number_of_measurements; i++){
 
+        sleep(0.1);
         hipMemcpy(r_local_d, r_local_h, rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
         hipMemcpy(x_local_d, starting_guess_h + row_start_index,
             rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
@@ -344,7 +373,7 @@ void test_preconditioned_split_sparse(
             A_distributed,
             A_subblock);
         
-        iterative_solver::preconditioned_conjugate_gradient_split<distributed_spmv_split_sparse, Preconditioner_jacobi_split>(
+        iterative_solver::preconditioned_conjugate_gradient_split<distributed_spmv_split, Preconditioner_jacobi_split>(
             A_subblock,
             A_distributed,
             p_distributed,
@@ -358,7 +387,7 @@ void test_preconditioned_split_sparse(
         hipDeviceSynchronize();
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_end = std::chrono::high_resolution_clock::now();
-        time_taken[i] += std::chrono::duration<double>(time_end - time_start).count();
+        time_taken[i] = std::chrono::duration<double>(time_end - time_start).count();
         if(rank == 0){
             std::cout << rank << " time_taken["<<i<<"] " << time_taken[i] << std::endl;
         }

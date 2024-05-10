@@ -7,9 +7,9 @@ Distributed_matrix::Distributed_matrix(
     int nnz,
     int *counts,
     int *displacements,
-    int *col_indices_in,
-    int *row_ptr_in,
-    double *data_in,
+    int *col_ind_in_h,
+    int *row_ptr_in_h,
+    double *data_in_h,
     rocsparse_spmv_alg *algos,
     MPI_Comm comm)
 {
@@ -26,18 +26,79 @@ Distributed_matrix::Distributed_matrix(
     }
     rows_this_rank = counts[rank];
 
+    cudaErrchk(hipMalloc(&data_d, nnz*sizeof(double)));
+    cudaErrchk(hipMalloc(&col_ind_d, nnz*sizeof(int)));
+    cudaErrchk(hipMalloc(&row_ptr_d, (counts[rank]+1)*sizeof(int)));
+    cudaErrchk(hipMemcpy(data_d, data_in_h, nnz*sizeof(double), hipMemcpyHostToDevice));
+    cudaErrchk(hipMemcpy(col_ind_d, col_ind_in_h, nnz*sizeof(int), hipMemcpyHostToDevice));
+    cudaErrchk(hipMemcpy(row_ptr_d, row_ptr_in_h,  (counts[rank]+1)*sizeof(int), hipMemcpyHostToDevice));
+    algo_generic = algos[rank];
+
+    rocsparse_handle rocsparseHandle;
+    rocsparse_create_handle(&rocsparseHandle);
+
+    double *vec_in_d;
+    double *vec_out_d;
+    rocsparse_dnvec_descr vec_in;
+    rocsparse_dnvec_descr vec_out;
+
+    cudaErrchk(hipMalloc(&vec_in_d, matrix_size*sizeof(double)));
+    cudaErrchk(hipMalloc(&vec_out_d, rows_this_rank*sizeof(double)));
+    rocsparse_create_dnvec_descr(&vec_in,
+        matrix_size, vec_in_d, rocsparse_datatype_f64_r);
+    rocsparse_create_dnvec_descr(&vec_out,
+        rows_this_rank, vec_out_d, rocsparse_datatype_f64_r);
+
+    rocsparse_create_csr_descr(
+        &descriptor,
+        rows_this_rank,
+        matrix_size,
+        nnz,
+        row_ptr_d,
+        col_ind_d,
+        data_d,
+        rocsparse_indextype_i32,
+        rocsparse_indextype_i32,
+        rocsparse_index_base_zero,
+        rocsparse_datatype_f64_r);
+
+    double alpha = 1.0;
+    double beta = 0.0;
+
+    rocsparseErrchk(rocsparse_spmv(
+        rocsparseHandle,
+        rocsparse_operation_none,
+        &alpha,
+        descriptor,
+        vec_in,
+        &beta,
+        vec_out,
+        rocsparse_datatype_f64_r,
+        algo_generic,
+        &buffer_size,
+        nullptr));
+    cudaErrchk(hipMalloc(&buffer_d, buffer_size));
+
+    rocsparse_destroy_dnvec_descr(vec_in);
+    rocsparse_destroy_dnvec_descr(vec_out);
+    cudaErrchk(hipFree(vec_in_d));
+    cudaErrchk(hipFree(vec_out_d));
+
+    rocsparse_destroy_handle(rocsparseHandle);
+
+
     // find neighbours_flag
     neighbours_flag = new bool[size];
-    find_neighbours(col_indices_in, row_ptr_in);
+    find_neighbours(col_ind_in_h, row_ptr_in_h);
     
     neighbours = new int[number_of_neighbours];
     nnz_per_neighbour = new int[number_of_neighbours];
     construct_neighbours_list();
-    construct_nnz_per_neighbour(col_indices_in, row_ptr_in);
+    construct_nnz_per_neighbour(col_ind_in_h, row_ptr_in_h);
     // order of calls is important
     create_host_memory();
-    // split data, indices and row_ptr_in
-    split_csr(col_indices_in, row_ptr_in, data_in);
+    // split data, indices and row_ptr_in_h
+    split_csr(col_ind_in_h, row_ptr_in_h, data_in_h);
     construct_nnz_cols_per_neighbour();
     construct_nnz_rows_per_neighbour();
     construct_cols_per_neighbour();
@@ -48,9 +109,9 @@ Distributed_matrix::Distributed_matrix(
     create_device_memory();
     // populate
     for(int k = 0; k < number_of_neighbours; k++){
-        cudaErrchk(hipMemcpy(data_d[k], data_h[k], nnz_per_neighbour[k]*sizeof(double), hipMemcpyHostToDevice));
-        cudaErrchk(hipMemcpy(col_indices_d[k], col_indices_h[k], nnz_per_neighbour[k]*sizeof(int), hipMemcpyHostToDevice));
-        cudaErrchk(hipMemcpy(row_ptr_d[k], row_ptr_h[k], (rows_this_rank+1)*sizeof(int), hipMemcpyHostToDevice));
+        cudaErrchk(hipMemcpy(datas_d[k], data_h[k], nnz_per_neighbour[k]*sizeof(double), hipMemcpyHostToDevice));
+        cudaErrchk(hipMemcpy(col_inds_d[k], col_indices_h[k], nnz_per_neighbour[k]*sizeof(int), hipMemcpyHostToDevice));
+        cudaErrchk(hipMemcpy(row_ptrs_d[k], row_ptr_h[k], (rows_this_rank+1)*sizeof(int), hipMemcpyHostToDevice));
     }
     // take needed algorithms
     rocsparse_spmv_alg algos_neighbours[number_of_neighbours];
@@ -117,8 +178,8 @@ Distributed_matrix::Distributed_matrix(
 
     // copy inputs
     for(int k = 0; k < number_of_neighbours; k++){
-        cudaErrchk(hipMemcpy(col_indices_d[k], col_indices_in_d[k], nnz_per_neighbour[k]*sizeof(int), hipMemcpyDeviceToDevice));
-        cudaErrchk(hipMemcpy(row_ptr_d[k], row_ptr_in_d[k], (rows_this_rank+1)*sizeof(int), hipMemcpyDeviceToDevice));
+        cudaErrchk(hipMemcpy(col_inds_d[k], col_indices_in_d[k], nnz_per_neighbour[k]*sizeof(int), hipMemcpyDeviceToDevice));
+        cudaErrchk(hipMemcpy(row_ptrs_d[k], row_ptr_in_d[k], (rows_this_rank+1)*sizeof(int), hipMemcpyDeviceToDevice));
         cudaErrchk(hipMemcpy(col_indices_h[k], col_indices_in_d[k], nnz_per_neighbour[k]*sizeof(int), hipMemcpyDeviceToHost));
         cudaErrchk(hipMemcpy(row_ptr_h[k], row_ptr_in_d[k], (rows_this_rank+1)*sizeof(int), hipMemcpyDeviceToHost));
     }
@@ -187,18 +248,18 @@ Distributed_matrix::~Distributed_matrix(){
     delete[] recv_types;
 
     for(int k = 0; k < number_of_neighbours; k++){
-        cudaErrchk(hipFree(data_d[k]));
-        cudaErrchk(hipFree(col_indices_d[k]));
-        cudaErrchk(hipFree(row_ptr_d[k]));
-        cudaErrchk(hipFree(buffer_d[k]));
+        cudaErrchk(hipFree(datas_d[k]));
+        cudaErrchk(hipFree(col_inds_d[k]));
+        cudaErrchk(hipFree(row_ptrs_d[k]));
+        cudaErrchk(hipFree(buffers_d[k]));
         rocsparse_destroy_spmat_descr(descriptors[k]);
     }
-    delete[] buffer_d;
-    delete[] data_d;
-    delete[] col_indices_d;
-    delete[] row_ptr_d;
+    delete[] buffers_d;
+    delete[] datas_d;
+    delete[] col_inds_d;
+    delete[] row_ptrs_d;
     delete[] descriptors;
-    delete[] buffer_size;
+    delete[] buffers_size;
 
     delete[] send_requests;
     delete[] recv_requests;
@@ -222,15 +283,15 @@ Distributed_matrix::~Distributed_matrix(){
 }
 
 void Distributed_matrix::find_neighbours(
-    int *col_indices_in,
-    int *row_ptr_in
+    int *col_ind_in_h,
+    int *row_ptr_in_h
 ){
     for(int k = 0; k < size; k++){
         bool tmp = false;
         #pragma omp parallel for reduction(||:tmp)
         for(int i = 0; i < rows_this_rank; i++){
-            for(int j = row_ptr_in[i]; j < row_ptr_in[i+1]; j++){
-                int col_idx = col_indices_in[j];
+            for(int j = row_ptr_in_h[i]; j < row_ptr_in_h[i+1]; j++){
+                int col_idx = col_ind_in_h[j];
                 if(col_idx >= displacements[k] && col_idx < displacements[k] + counts[k]){
                     tmp = true;
                 }
@@ -262,8 +323,8 @@ void Distributed_matrix::construct_neighbours_list(
 }
 
 void Distributed_matrix::construct_nnz_per_neighbour(
-    int *col_indices_in,
-    int *row_ptr_in
+    int *col_ind_in_h,
+    int *row_ptr_in_h
 )
 {
     for(int k = 0; k < number_of_neighbours; k++){
@@ -275,8 +336,8 @@ void Distributed_matrix::construct_nnz_per_neighbour(
         int tmp = 0;
         #pragma omp parallel for reduction(+:tmp)
         for(int i = 0; i < rows_this_rank; i++){
-            for(int j = row_ptr_in[i]; j < row_ptr_in[i+1]; j++){
-                int col_idx = col_indices_in[j];
+            for(int j = row_ptr_in_h[i]; j < row_ptr_in_h[i+1]; j++){
+                int col_idx = col_ind_in_h[j];
                 if(col_idx >= displacements[neighbour_idx] && col_idx < displacements[neighbour_idx] + counts[neighbour_idx]){
                     tmp++;
                 }
@@ -290,9 +351,9 @@ void Distributed_matrix::construct_nnz_per_neighbour(
 
 
 void Distributed_matrix::split_csr(
-    int *col_indices_in,
-    int *row_ptr_in,
-    double *data_in
+    int *col_ind_in_h,
+    int *row_ptr_in_h,
+    double *data_in_h
 ){
     int *tmp_nnz_per_neighbour = new int[number_of_neighbours];
     for(int k = 0; k < number_of_neighbours; k++){
@@ -305,11 +366,11 @@ void Distributed_matrix::split_csr(
             row_ptr_h[k][i] = tmp;
         
 
-            for(int j = row_ptr_in[i]; j < row_ptr_in[i+1]; j++){
+            for(int j = row_ptr_in_h[i]; j < row_ptr_in_h[i+1]; j++){
                 int neighbour_idx = neighbours[k];
-                int col_idx = col_indices_in[j];
+                int col_idx = col_ind_in_h[j];
                 if(col_idx >= displacements[neighbour_idx] && col_idx < displacements[neighbour_idx] + counts[neighbour_idx]){
-                    data_h[k][tmp] = data_in[j];
+                    data_h[k][tmp] = data_in_h[j];
                     col_indices_h[k][tmp] = col_idx - displacements[neighbour_idx];
                     tmp++;
                 }
@@ -558,23 +619,23 @@ void Distributed_matrix::create_host_memory(){
 }
 
 void Distributed_matrix::create_device_memory(){
-    data_d = new double*[number_of_neighbours];
-    col_indices_d = new int*[number_of_neighbours];
-    row_ptr_d = new int*[number_of_neighbours];
+    datas_d = new double*[number_of_neighbours];
+    col_inds_d = new int*[number_of_neighbours];
+    row_ptrs_d = new int*[number_of_neighbours];
     
     for(int k = 0; k < number_of_neighbours; k++){
         int neighbour_idx = neighbours[k];
-        cudaErrchk(hipMalloc(&data_d[k], nnz_per_neighbour[k]*sizeof(double)));
-        cudaErrchk(hipMalloc(&col_indices_d[k], nnz_per_neighbour[k]*sizeof(int)));
-        cudaErrchk(hipMalloc(&row_ptr_d[k], (rows_this_rank+1)*sizeof(int)));
+        cudaErrchk(hipMalloc(&datas_d[k], nnz_per_neighbour[k]*sizeof(double)));
+        cudaErrchk(hipMalloc(&col_inds_d[k], nnz_per_neighbour[k]*sizeof(int)));
+        cudaErrchk(hipMalloc(&row_ptrs_d[k], (rows_this_rank+1)*sizeof(int)));
     }
 }
 
 void Distributed_matrix::prepare_spmv(
     rocsparse_spmv_alg *algos_neighbours
 ){
-    buffer_size = new size_t[number_of_neighbours];
-    buffer_d = new double*[number_of_neighbours];
+    buffers_size = new size_t[number_of_neighbours];
+    buffers_d = new double*[number_of_neighbours];
     descriptors = new rocsparse_spmat_descr[number_of_neighbours];
 
     rocsparse_handle rocsparseHandle;
@@ -611,9 +672,9 @@ void Distributed_matrix::prepare_spmv(
             rows_this_rank,
             counts[neighbour_idx],
             nnz_per_neighbour[k],
-            row_ptr_d[k],
-            col_indices_d[k],
-            data_d[k],
+            row_ptrs_d[k],
+            col_inds_d[k],
+            datas_d[k],
             rocsparse_indextype_i32,
             rocsparse_indextype_i32,
             rocsparse_index_base_zero,
@@ -632,9 +693,9 @@ void Distributed_matrix::prepare_spmv(
             vec_out,
             rocsparse_datatype_f64_r,
             algos_generic[k],
-            &buffer_size[k],
+            &buffers_size[k],
             nullptr));
-        cudaErrchk(hipMalloc(&buffer_d[k], buffer_size[k]));
+        cudaErrchk(hipMalloc(&buffers_d[k], buffers_size[k]));
 
         rocsparse_destroy_dnvec_descr(vec_in);
         rocsparse_destroy_dnvec_descr(vec_out);
@@ -673,7 +734,5 @@ void Distributed_matrix::destroy_cg_overhead(
     rocsparse_destroy_dnvec_descr(vecAp_local);
     cudaErrchk(hipFree(Ap_local_d));    
     cudaErrchk(hipFree(z_local_d));
-
-
 
 }

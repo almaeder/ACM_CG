@@ -46,7 +46,7 @@ void spmm_split_sparse1(
         }
     }
 
-    dspmv::gpu_packing_cam(
+    dspmv::manual_packing_cam(
         A_distributed,
         p_distributed,
         vecAp_local,
@@ -161,8 +161,8 @@ void spmm_split_sparse2(
                 A_distributed.descriptors[i], p_distributed.descriptors[i],
                 &alpha, vecAp_local, rocsparse_datatype_f64_r,
                 A_distributed.algos_generic[i],
-                &A_distributed.buffer_size[i],
-                A_distributed.buffer_d[i]);
+                &A_distributed.buffers_size[i],
+                A_distributed.buffers_d[i]);
         }
         else{
             rocsparse_spmv(
@@ -170,8 +170,8 @@ void spmm_split_sparse2(
                 A_distributed.descriptors[i], p_distributed.descriptors[i],
                 &beta, vecAp_local, rocsparse_datatype_f64_r,
                 A_distributed.algos_generic[i],
-                &A_distributed.buffer_size[i],
-                A_distributed.buffer_d[i]);
+                &A_distributed.buffers_size[i],
+                A_distributed.buffers_d[i]);
         }
 
 
@@ -299,8 +299,8 @@ void spmm_split_sparse3(
                 A_distributed.descriptors[i], p_distributed.descriptors[i],
                 &alpha, vecAp_local, rocsparse_datatype_f64_r,
                 A_distributed.algos_generic[i],
-                &A_distributed.buffer_size[i],
-                A_distributed.buffer_d[i]);
+                &A_distributed.buffers_size[i],
+                A_distributed.buffers_d[i]);
         }
         else{
             rocsparse_spmv(
@@ -308,8 +308,8 @@ void spmm_split_sparse3(
                 A_distributed.descriptors[i], p_distributed.descriptors[i],
                 &beta, vecAp_local, rocsparse_datatype_f64_r,
                 A_distributed.algos_generic[i],
-                &A_distributed.buffer_size[i],
-                A_distributed.buffer_d[i]);
+                &A_distributed.buffers_size[i],
+                A_distributed.buffers_d[i]);
         }
 
 
@@ -403,7 +403,7 @@ void spmm_split_sparse4(
         }
     }
 
-    dspmv::gpu_packing_cam(
+    dspmv::manual_packing_cam(
         A_distributed,
         p_distributed,
         vecAp_local,

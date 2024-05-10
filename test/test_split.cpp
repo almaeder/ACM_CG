@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     hipError_t set_device_error = hipSetDevice(localid);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
-    int matsize = 10;
+    int matsize = 111;
     std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices/";
     std::string save_path ="/scratch/project_465000929/maederal/ACM_Poster/results/";
 
@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
 
     std::cout << "loaded data" << std::endl;
 
-    if(rank == 0){
+    if(rank == 0 && false){
         // check matrices the same
         double *dense_tot = new double[matrix_size * matrix_size];
         double *dense_split = new double[matrix_size * matrix_size];
@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
 
     double *test_solution_tot_h = new double[matrix_size];
 
-    test_preconditioned<dspmv::gpu_packing>(
+    test_preconditioned<dspmv::manual_packing>(
         data_tot,
         col_indices_tot,
         row_ptr_tot,
