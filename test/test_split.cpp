@@ -15,11 +15,24 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     char* slurm_localid = getenv("SLURM_LOCALID");
-    int localid = atoi(slurm_localid);
-    int device_id = localid; 
-    std::cout << "rank " << rank << " device_id " << device_id << std::endl;
+    int localid = -1;
+    if (slurm_localid != nullptr) {
+        localid = atoi(slurm_localid);
+        std::cout << "Rank " << rank << " has SLURM_LOCALID " << localid << std::endl;
+    } else {
+        std::cerr << "Rank " << rank << " cannot access SLURM_LOCALID" << std::endl;
+        exit(1);
+    }
 
-    hipError_t set_device_error = hipSetDevice(localid);
+    char* rocr_visible_devices = getenv("ROCR_VISIBLE_DEVICES");
+    if (rocr_visible_devices != nullptr) {
+        std::cout << "Rank " << rank << " ROCR_VISIBLE_DEVICES: " << rocr_visible_devices << std::endl;
+    } else {
+        std::cerr << "Rank " << rank << " ROCR_VISIBLE_DEVICES not set" << std::endl;
+        exit(1);
+    }
+
+    hipError_t set_device_error = hipSetDevice(0);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
     int matsize = 111;

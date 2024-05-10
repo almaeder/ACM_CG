@@ -220,6 +220,63 @@ void expand_col_indices(
 
 }
 
+__global__ void _compression_array(
+    int *compression_d,
+    int *compression_indices_d,
+    int number_cols_compressed
+){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    for(int i = idx; i < number_cols_compressed; i += blockDim.x * gridDim.x){
+        compression_d[compression_indices_d[i]] = i;
+    }
+}
+
+__global__ void _compress_col_indices(
+    int *col_indices_d,
+    int *col_indices_compressed_d,
+    int *compression_d,
+    int nnz
+){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    for(int i = idx; i < nnz; i += blockDim.x * gridDim.x){
+        col_indices_compressed_d[i] = compression_d[col_indices_d[i]];
+    }
+}
+
+
+void compress_col_ind(
+    int *col_indices_d,
+    int *col_indices_compressed_d,
+    int *compression_indices_d,
+    int nnz,
+    int number_cols,
+    int number_cols_compressed
+){
+
+    // compression[cols_per_neighbour_d[k]] = k
+    // compression[col_inds_d[j]] = col_inds_d[j] - cols_per_neighbour_d[...]
+    // helper array to compress
+    int *compression_d;
+    cudaErrchk(hipMalloc((void **)&compression_d,
+        number_cols * sizeof(int)));
+
+    int block_size = 1024;
+    int num_blocks = (number_cols_compressed + block_size - 1) / block_size;
+    hipLaunchKernelGGL(_compression_array, num_blocks, block_size, 0, 0,
+        compression_d,
+        compression_indices_d,
+        number_cols_compressed);
+
+    num_blocks = (nnz + block_size - 1) / block_size;
+    hipLaunchKernelGGL(_compress_col_indices, num_blocks, block_size, 0, 0,
+        col_indices_d,
+        col_indices_compressed_d,
+        compression_d,
+        nnz);
+
+    cudaErrchk(hipFree(compression_d));
+}
+
 
 __global__ void _pack(
     double *packed_buffer,

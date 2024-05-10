@@ -13,11 +13,24 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     char* slurm_localid = getenv("SLURM_LOCALID");
-    int localid = atoi(slurm_localid);
-    int device_id = localid; 
-    std::cout << "rank " << rank << " device_id " << device_id << std::endl;
+    int localid = -1;
+    if (slurm_localid != nullptr) {
+        localid = atoi(slurm_localid);
+        std::cout << "Rank " << rank << " has SLURM_LOCALID " << localid << std::endl;
+    } else {
+        std::cerr << "Rank " << rank << " cannot access SLURM_LOCALID" << std::endl;
+        exit(1);
+    }
 
-    hipError_t set_device_error = hipSetDevice(localid);
+    char* rocr_visible_devices = getenv("ROCR_VISIBLE_DEVICES");
+    if (rocr_visible_devices != nullptr) {
+        std::cout << "Rank " << rank << " ROCR_VISIBLE_DEVICES: " << rocr_visible_devices << std::endl;
+    } else {
+        std::cerr << "Rank " << rank << " ROCR_VISIBLE_DEVICES not set" << std::endl;
+        exit(1);
+    }
+
+    hipError_t set_device_error = hipSetDevice(0);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
     int matsize = 401;
@@ -35,11 +48,11 @@ int main(int argc, char **argv) {
     }
 
     int start_up_measurements = 0;
-    int true_number_of_measurements = 5;
+    int true_number_of_measurements = 2;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
 
     int max_iterations = 5000;
-    double relative_tolerance = 1e-12;
+    double relative_tolerance = 1e-9;
 
     double *data = new double[nnz];
     int *row_ptr = new int[matrix_size+1];
@@ -181,6 +194,33 @@ int main(int argc, char **argv) {
         for (int i = 0; i < matrix_size; ++i) {
             difference += std::sqrt( (test_solution3_h[i] - reference_solution[i]) *
                 (test_solution3_h[i] - reference_solution[i]) );
+            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+        }
+        std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
+    }
+
+    double *test_solution4_h = new double[matrix_size];
+    test_preconditioned<dspmv::manual_packing_cam2>(
+        data,
+        col_indices,
+        row_ptr,
+        rhs,
+        starting_guess_h,
+        test_solution4_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_gpu_packing,
+        number_of_measurements
+    );
+
+    if(rank == 0){
+        double difference = 0;
+        double sum_ref = 0;
+        for (int i = 0; i < matrix_size; ++i) {
+            difference += std::sqrt( (test_solution4_h[i] - reference_solution[i]) *
+                (test_solution4_h[i] - reference_solution[i]) );
             sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
         }
         std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;

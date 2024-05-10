@@ -138,6 +138,14 @@ class Distributed_matrix{
         rocsparse_spmat_descr *descriptors;
         rocsparse_spmv_alg *algos_generic;
 
+        // including self itself
+        // but self will not be used
+        size_t *buffers_size_compressed;
+        double **buffers_compressed_d;
+        int **col_inds_compressed_d;
+        rocsparse_spmat_descr *descriptors_compressed;
+        rocsparse_dnvec_descr *recv_buffer_descriptor;
+
         size_t buffer_size;
         double *buffer_d;
         double *data_d;
@@ -225,6 +233,14 @@ class Distributed_matrix{
     ~Distributed_matrix();
 
     private:
+
+        void create_row_block(
+            double *data_in_h,
+            int *col_ind_in_h,
+            int *row_ptr_in_h,
+            rocsparse_spmv_alg *algos
+        );
+
         void find_neighbours(
             int *col_ind_in_h,
             int *row_ptr_in_h
@@ -269,5 +285,7 @@ class Distributed_matrix{
         void create_cg_overhead();
 
         void destroy_cg_overhead();
+
+        void compress_col_inds();
 
 };

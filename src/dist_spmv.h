@@ -18,6 +18,13 @@ void alltoall_cam(
     hipStream_t &default_stream,
     rocsparse_handle &default_rocsparseHandle);
 
+void pointpoint_singlekernel_cam(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    rocsparse_dnvec_descr &vecAp_local,
+    hipStream_t &default_stream,
+    rocsparse_handle &default_rocsparseHandle);
+
 void manual_packing(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
@@ -32,7 +39,7 @@ void manual_packing_cam(
     hipStream_t &default_stream,
     rocsparse_handle &default_rocsparseHandle);
 
-void pointpoint_singlekernel_cam(
+void manual_packing_cam2(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     rocsparse_dnvec_descr &vecAp_local,

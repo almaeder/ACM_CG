@@ -2,6 +2,7 @@
 #include <hip/hip_runtime.h>
 #include <iostream>
 #include <fstream>
+#include "cudaerrchk.h"
 
 void extract_diagonal_inv(
     double *data,
@@ -46,6 +47,14 @@ void expand_col_indices(
     int *subblock_indices_d,
     int nnz,
     int subblock_size);
+
+void compress_col_ind(
+    int *col_indices_d,
+    int *col_indices_compressed_d,
+    int *compression_indices_d,
+    int nnz,
+    int number_cols,
+    int number_cols_compressed);
 
 void pack(
     double *packed_buffer,

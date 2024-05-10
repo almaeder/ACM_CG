@@ -202,7 +202,6 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_jac
     Preconditioner_jacobi &precon);
 
 
-
 template 
 void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner_none>(
     Distributed_matrix &A_distributed,
@@ -215,6 +214,28 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner
     Preconditioner_none &precon);
 template 
 void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner_jacobi>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+
+
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditioner_none>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_none &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditioner_jacobi>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
