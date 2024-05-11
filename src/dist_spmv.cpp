@@ -91,6 +91,64 @@ void pointpoint_singlekernel_cam(
 }
 
 
+void pointpoint_singlekernel_cam2(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    rocsparse_dnvec_descr &vecAp_local,
+    hipStream_t &default_stream,
+    rocsparse_handle &default_rocsparseHandle
+){
+    double alpha = 1.0;
+    double beta = 0.0;
+
+    // post all send requests
+    for(int i = 1; i < A_distributed.number_of_neighbours; i++){
+        pack(A_distributed.send_buffer_d[i], p_distributed.vec_d[0],
+            A_distributed.rows_per_neighbour_d[i], A_distributed.nnz_rows_per_neighbour[i], default_stream);
+
+        cudaErrchk(hipEventRecord(A_distributed.events_send[i], default_stream));
+    }
+
+    cudaErrchk(hipMemcpyAsync(
+        A_distributed.p_compressed_d + A_distributed.displacements_compressed_h[0],
+        p_distributed.vec_d[0],
+        A_distributed.rows_this_rank * sizeof(double), hipMemcpyDeviceToDevice, default_stream));
+    
+
+    for(int i = 1; i < A_distributed.number_of_neighbours; i++){
+        int send_idx = p_distributed.neighbours[i];
+        int send_tag = std::abs(send_idx-A_distributed.rank);
+
+        cudaErrchk(hipEventSynchronize(A_distributed.events_send[i]));
+
+        MPI_Isend(A_distributed.send_buffer_d[i], A_distributed.nnz_rows_per_neighbour[i],
+            MPI_DOUBLE, send_idx, send_tag, A_distributed.comm, &A_distributed.send_requests[i]);
+    }
+
+    for(int i = 1; i < A_distributed.number_of_neighbours; i++){
+        // loop over neighbors
+        int recv_idx = p_distributed.neighbours[i];
+        int recv_tag = std::abs(recv_idx-A_distributed.rank);
+        MPI_Irecv(A_distributed.p_compressed_d + A_distributed.displacements_compressed_h[i],
+            A_distributed.nnz_cols_per_neighbour[i],
+            MPI_DOUBLE, recv_idx, recv_tag, A_distributed.comm, &A_distributed.recv_requests[i]);
+    }
+    if(A_distributed.number_of_neighbours > 1){
+        MPI_Waitall(A_distributed.number_of_neighbours-1, &A_distributed.recv_requests[1], MPI_STATUSES_IGNORE);    
+    }   
+    rocsparse_spmv(
+        default_rocsparseHandle, rocsparse_operation_none, &alpha,
+        A_distributed.descriptor_compressed, A_distributed.p_compressed_descriptor,
+        &beta, vecAp_local, rocsparse_datatype_f64_r,
+        A_distributed.algo_generic,
+        &A_distributed.buffer_size_compressed,
+        A_distributed.buffer_compressed_d);
+
+    if(A_distributed.number_of_neighbours > 1){
+        MPI_Waitall(A_distributed.number_of_neighbours-1, &A_distributed.send_requests[1], MPI_STATUSES_IGNORE);    
+    }        
+}
+
 void manual_packing(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,

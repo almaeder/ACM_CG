@@ -67,6 +67,8 @@ Distributed_matrix::Distributed_matrix(
     create_cg_overhead();
 
     compress_col_inds();
+
+    compress_col_ind();
 }
 
 
@@ -240,6 +242,19 @@ Distributed_matrix::~Distributed_matrix(){
     delete[] col_inds_compressed_d;
     delete[] descriptors_compressed;
     delete[] buffers_size_compressed;
+
+    cudaErrchk(hipFree(buffer_d));
+    cudaErrchk(hipFree(data_d));
+    cudaErrchk(hipFree(col_ind_d));
+    cudaErrchk(hipFree(row_ptr_d));
+    rocsparse_destroy_spmat_descr(descriptor);
+
+    cudaErrchk(hipFree(buffer_compressed_d));
+    cudaErrchk(hipFree(col_ind_compressed_d));
+    rocsparse_destroy_spmat_descr(descriptor_compressed);
+    delete[] displacements_compressed_h;
+    rocsparse_destroy_dnvec_descr(p_compressed_descriptor);
+    cudaErrchk(hipFree(p_compressed_d));
 }
 
 void Distributed_matrix::create_row_block(
@@ -778,7 +793,7 @@ void Distributed_matrix::compress_col_inds(
         cudaErrchk(hipMalloc(&col_inds_compressed_d[k],
             nnz_per_neighbour[k] * sizeof(int)));
 
-        compress_col_ind(
+        compress_block_col_ind(
             col_inds_d[k],
             col_inds_compressed_d[k],
             cols_per_neighbour_d[k],
@@ -848,4 +863,177 @@ void Distributed_matrix::compress_col_inds(
     }
 
     rocsparse_destroy_handle(rocsparseHandle);
+}
+
+void Distributed_matrix::compress_col_ind(
+){
+    int *compression_h = new int[matrix_size];
+
+    nnz_cols = counts[rank];
+    for(int i = 1; i < number_of_neighbours; i++){
+        nnz_cols += nnz_cols_per_neighbour[i];
+    }
+
+    // shift to unmodulo neighbours
+    // take advantage of order 7,8,6 etc 
+    int shift = 0;
+    for(int i = 0; i < number_of_neighbours-1; i++){
+        if(neighbours[i] > neighbours[i+1]){
+            shift = i+1;
+        }
+    }
+
+    int idx_own_rotated = (
+            number_of_neighbours - shift
+        ) % number_of_neighbours;
+
+    int *neighbours_unrotated = new int[number_of_neighbours];
+    for(int i = 0; i < number_of_neighbours; i++){
+        neighbours_unrotated[(
+            number_of_neighbours + i - shift
+        ) % number_of_neighbours] = neighbours[i];
+    }
+
+    if(neighbours_unrotated[idx_own_rotated] != rank){
+        std::cout << "wrong order" << std::endl;
+        exit(1);
+    }
+    for(int i = 0; i < number_of_neighbours-1; i++){
+        if(neighbours_unrotated[i] > neighbours_unrotated[i+1]){
+            std::cout << "wrong order" << std::endl;
+            exit(1);
+        }
+    }
+
+    int *compression_indices_h = new int[nnz_cols];
+    displacements_compressed_h = new int[number_of_neighbours];
+    int count_indices = 0;
+
+    //left neighbours
+    for(int i = 0; i < idx_own_rotated; i++){
+        int neighbour_idx = neighbours_unrotated[i];
+        int idx_rotated = (i+shift) % number_of_neighbours;
+        if(neighbour_idx != neighbours[idx_rotated]){
+            std::cout << rank << " wrong rotated" << std::endl;
+        }
+        if(neighbour_idx > rank){
+            std::cout << rank << " wrong rotated" << std::endl;
+        }
+        for(int j = 0; j < nnz_cols_per_neighbour[idx_rotated]; j++){
+            compression_indices_h[j + count_indices] = cols_per_neighbour_h[idx_rotated][j] + displacements[neighbour_idx];
+        }
+        displacements_compressed_h[idx_rotated] = count_indices;
+        count_indices += nnz_cols_per_neighbour[idx_rotated];
+    }
+    //self
+    for(int j = 0; j < counts[rank]; j++){
+        compression_indices_h[j + count_indices] = j + displacements[rank];
+    }
+    displacements_compressed_h[0] = count_indices;
+    count_indices += counts[rank];
+    //right neighbours
+    for(int i = idx_own_rotated+1; i < number_of_neighbours; i++){
+        int neighbour_idx = neighbours_unrotated[i];
+        int idx_rotated = (i+shift) % number_of_neighbours;
+        if(neighbour_idx != neighbours[idx_rotated]){
+            std::cout << rank << " wrong rotated" << std::endl;
+        }
+        if(neighbour_idx < rank){
+            std::cout << rank << " wrong rotated" << std::endl;
+        }
+        for(int j = 0; j < nnz_cols_per_neighbour[idx_rotated]; j++){
+            compression_indices_h[j + count_indices] = cols_per_neighbour_h[idx_rotated][j] + displacements[neighbour_idx];
+        }
+        displacements_compressed_h[idx_rotated] = count_indices;
+        count_indices += nnz_cols_per_neighbour[idx_rotated];
+    }
+
+    for(int i = 0; i < nnz_cols-1; i++){
+        if(compression_indices_h[i] > compression_indices_h[i+1]){
+            std::cout << rank << " " << i << " " << compression_indices_h[i]
+                << " " << compression_indices_h[i+1] << std::endl;
+            std::cout << "Error in compress_col_ind" << std::endl;
+            exit(1);
+        }
+    }
+
+    cudaErrchk(hipMalloc(&col_ind_compressed_d,
+        nnz * sizeof(int)));
+
+    int *compression_indices_d;
+    cudaErrchk(hipMalloc(&compression_indices_d,
+        nnz_cols * sizeof(int)));
+    cudaErrchk(hipMemcpy(compression_indices_d, compression_indices_h,
+        nnz_cols * sizeof(int), hipMemcpyHostToDevice));
+
+    compress_block_col_ind(
+        col_ind_d,
+        col_ind_compressed_d,
+        compression_indices_d,
+        nnz,
+        matrix_size,
+        nnz_cols
+    );
+    cudaErrchk(hipFree(compression_indices_d));
+
+    delete[] compression_indices_h;
+    delete[] compression_h;
+
+
+    rocsparse_handle rocsparseHandle;
+    rocsparse_create_handle(&rocsparseHandle);
+
+    double *vec_in_d;
+    double *vec_out_d;
+    rocsparse_dnvec_descr vec_in;
+    rocsparse_dnvec_descr vec_out;
+
+    cudaErrchk(hipMalloc(&vec_in_d, nnz_cols*sizeof(double)));
+    cudaErrchk(hipMalloc(&vec_out_d, rows_this_rank*sizeof(double)));
+    rocsparse_create_dnvec_descr(&vec_in,
+        nnz_cols, vec_in_d, rocsparse_datatype_f64_r);
+    rocsparse_create_dnvec_descr(&vec_out,
+        rows_this_rank, vec_out_d, rocsparse_datatype_f64_r);
+
+    rocsparse_create_csr_descr(
+        &descriptor_compressed,
+        rows_this_rank,
+        nnz_cols,
+        nnz,
+        row_ptr_d,
+        col_ind_compressed_d,
+        data_d,
+        rocsparse_indextype_i32,
+        rocsparse_indextype_i32,
+        rocsparse_index_base_zero,
+        rocsparse_datatype_f64_r);
+
+    double alpha = 1.0;
+    double beta = 0.0;
+
+    rocsparseErrchk(rocsparse_spmv(
+        rocsparseHandle,
+        rocsparse_operation_none,
+        &alpha,
+        descriptor_compressed,
+        vec_in,
+        &beta,
+        vec_out,
+        rocsparse_datatype_f64_r,
+        algo_generic,
+        &buffer_size_compressed,
+        nullptr));
+    cudaErrchk(hipMalloc(&buffer_compressed_d, buffer_size_compressed));
+
+    rocsparse_destroy_dnvec_descr(vec_in);
+    rocsparse_destroy_dnvec_descr(vec_out);
+    cudaErrchk(hipFree(vec_in_d));
+    cudaErrchk(hipFree(vec_out_d));
+
+    cudaErrchk(hipMalloc(&p_compressed_d, nnz_cols*sizeof(double)));
+    rocsparse_create_dnvec_descr(&p_compressed_descriptor,
+        nnz_cols, p_compressed_d, rocsparse_datatype_f64_r);
+
+    rocsparse_destroy_handle(rocsparseHandle);
+
 }

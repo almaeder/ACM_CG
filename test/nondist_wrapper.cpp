@@ -154,6 +154,20 @@ void test_preconditioned<dspmv::pointpoint_singlekernel_cam>(
     double *time_taken,
     int number_of_measurements);
 template 
+void test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
 void test_preconditioned<dspmv::manual_packing>(
     double *data_h,
     int *col_indices_h,

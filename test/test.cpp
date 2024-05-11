@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     hipError_t set_device_error = hipSetDevice(0);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
-    int matsize = 401;
+    int matsize = 1600; //401;
     std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices";
     std::string save_path ="/scratch/project_465000929/maederal/ACM_Poster/results/";
 
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
     }
 
     double *test_solution2_h = new double[matrix_size];
-    test_preconditioned<dspmv::pointpoint_singlekernel_cam>(
+    test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
         data,
         col_indices,
         row_ptr,
@@ -225,6 +225,7 @@ int main(int argc, char **argv) {
         }
         std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
     }
+
 
 
     // std::string path_solve_gpu_packing = get_filename(save_path, "solve_gpu_packing_"+std::to_string(matsize), size, rank);

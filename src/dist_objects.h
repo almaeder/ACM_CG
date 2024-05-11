@@ -154,6 +154,18 @@ class Distributed_matrix{
         rocsparse_spmat_descr descriptor;
         rocsparse_spmv_alg algo_generic;
 
+        // weird idea, but compressed all non zero columns
+        // after and before local block
+        int nnz_cols;
+        size_t buffer_size_compressed;
+        double *buffer_compressed_d;
+        int *col_ind_compressed_d;
+        int *displacements_compressed_h;
+        rocsparse_spmat_descr descriptor_compressed;
+
+        double *p_compressed_d;
+        rocsparse_dnvec_descr p_compressed_descriptor;
+
         // Data types for MPI
         // assumes symmetric matrix
         
@@ -287,5 +299,7 @@ class Distributed_matrix{
         void destroy_cg_overhead();
 
         void compress_col_inds();
+
+        void compress_col_ind();
 
 };

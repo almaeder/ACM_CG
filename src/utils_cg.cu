@@ -244,7 +244,7 @@ __global__ void _compress_col_indices(
 }
 
 
-void compress_col_ind(
+void compress_block_col_ind(
     int *col_indices_d,
     int *col_indices_compressed_d,
     int *compression_indices_d,
