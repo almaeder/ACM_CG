@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     }
 
     int start_up_measurements = 0;
-    int true_number_of_measurements = 2;
+    int true_number_of_measurements = 10;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
 
     int max_iterations = 5000;
@@ -116,10 +116,9 @@ int main(int argc, char **argv) {
 
 
     double times_gpu_packing[number_of_measurements];
-    double times_gpu_packing_cam[number_of_measurements];
 
     double *test_solution1_h = new double[matrix_size];
-    test_preconditioned<dspmv::alltoall_cam>(
+    test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
         data,
         col_indices,
         row_ptr,
@@ -145,86 +144,6 @@ int main(int argc, char **argv) {
         std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
     }
 
-    double *test_solution2_h = new double[matrix_size];
-    test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution2_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_gpu_packing,
-        number_of_measurements
-    );
-
-    if(rank == 0){
-        double difference = 0;
-        double sum_ref = 0;
-        for (int i = 0; i < matrix_size; ++i) {
-            difference += std::sqrt( (test_solution2_h[i] - reference_solution[i]) *
-                (test_solution2_h[i] - reference_solution[i]) );
-            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
-        }
-        std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
-    }
-
-    double *test_solution3_h = new double[matrix_size];
-    test_preconditioned<dspmv::manual_packing_cam>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution3_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_gpu_packing,
-        number_of_measurements
-    );
-
-    if(rank == 0){
-        double difference = 0;
-        double sum_ref = 0;
-        for (int i = 0; i < matrix_size; ++i) {
-            difference += std::sqrt( (test_solution3_h[i] - reference_solution[i]) *
-                (test_solution3_h[i] - reference_solution[i]) );
-            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
-        }
-        std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
-    }
-
-    double *test_solution4_h = new double[matrix_size];
-    test_preconditioned<dspmv::manual_packing_cam2>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution4_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_gpu_packing,
-        number_of_measurements
-    );
-
-    if(rank == 0){
-        double difference = 0;
-        double sum_ref = 0;
-        for (int i = 0; i < matrix_size; ++i) {
-            difference += std::sqrt( (test_solution4_h[i] - reference_solution[i]) *
-                (test_solution4_h[i] - reference_solution[i]) );
-            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
-        }
-        std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
-    }
 
 
 

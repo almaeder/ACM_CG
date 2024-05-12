@@ -298,7 +298,7 @@ void pack(
     int number_of_elements
 )
 {
-    int block_size = 32;
+    int block_size = 1024;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
     hipLaunchKernelGGL(_pack, num_blocks, block_size, 0, 0, 
         packed_buffer,
@@ -316,7 +316,7 @@ void pack(
     hipStream_t stream
 )
 {
-    int block_size = 32;
+    int block_size = 1024;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
     hipLaunchKernelGGL(_pack, num_blocks, block_size, 0, stream, 
         packed_buffer,
@@ -346,7 +346,7 @@ void unpack(
     int number_of_elements
 )
 {
-    int block_size = 32;
+    int block_size = 1024;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
     hipLaunchKernelGGL(_unpack, num_blocks, block_size, 0, 0, 
         unpacked_buffer,
@@ -364,7 +364,7 @@ void unpack(
     hipStream_t stream
 )
 {
-    int block_size = 32;
+    int block_size = 1024;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
     hipLaunchKernelGGL(_unpack, num_blocks, block_size, 0, stream, 
         unpacked_buffer,
@@ -394,7 +394,7 @@ void unpack_add(
     int number_of_elements
 )
 {
-    int block_size = 32;
+    int block_size = 1024;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
     hipLaunchKernelGGL(_unpack_add, num_blocks, block_size, 0, 0, 
         unpacked_buffer,
@@ -413,7 +413,7 @@ void unpack_add(
     hipStream_t stream
 )
 {
-    int block_size = 32;
+    int block_size = 1024;
     int num_blocks = (number_of_elements + block_size - 1) / block_size;
     hipLaunchKernelGGL(_unpack_add, num_blocks, block_size, 0, stream, 
         unpacked_buffer,

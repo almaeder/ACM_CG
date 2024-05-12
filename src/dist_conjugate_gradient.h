@@ -33,6 +33,24 @@ void preconditioned_conjugate_gradient(
     MPI_Comm comm,
     Precon &precon);
 
+template <void (*distributed_spmv)(
+    Distributed_matrix&,
+    Distributed_vector&,
+    rocsparse_dnvec_descr&,
+    hipStream_t&,
+    rocsparse_handle&),
+    typename Precon>
+void preconditioned_conjugate_gradient2(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Precon &precon);
+
+
 template <void (*distributed_spmv_split_sparse)
     (Distributed_subblock &,
     Distributed_matrix &,    

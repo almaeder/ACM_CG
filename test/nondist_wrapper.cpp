@@ -81,7 +81,6 @@ void test_preconditioned(
     hipMemcpy(r_local_d, r_local_h, rows_this_rank * sizeof(double), hipMemcpyHostToDevice);
 
     
-
     for(int i = 0; i < number_of_measurements; i++){
         // reset starting guess and right hand side
         hipMemcpy(x_local_d, starting_guess_h + row_start_index,
@@ -93,6 +92,7 @@ void test_preconditioned(
         auto time_start = std::chrono::high_resolution_clock::now();
 
         Preconditioner_jacobi precon(A_distributed);
+        
         iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_jacobi>(
             A_distributed,
             p_distributed,
@@ -103,7 +103,6 @@ void test_preconditioned(
             comm,
             precon);
 
-
         hipDeviceSynchronize();
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_end = std::chrono::high_resolution_clock::now();
@@ -112,6 +111,7 @@ void test_preconditioned(
             std::cout << rank << " time_taken["<<i<<"] " << time_taken[i] << std::endl;
         }
     }
+
     //copy solution to host
     cudaErrchk(hipMemcpy(test_solution_h + row_start_index,
         x_local_d, rows_this_rank * sizeof(double), hipMemcpyDeviceToHost));

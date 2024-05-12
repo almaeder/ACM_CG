@@ -84,8 +84,8 @@ void preconditioned_conjugate_gradient(
         if(k > 1){
             // pk+1 = rk+1 + b*pk
             b = r_norm2_h[0] / r0;
-            cublasErrchk(hipblasDscal(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, &b, p_distributed.vec_d[0], 1));
-            cublasErrchk(hipblasDaxpy(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, &alpha, A_distributed.z_local_d, 1, p_distributed.vec_d[0], 1)); 
+            cg_addvec(A_distributed.z_local_d, b, p_distributed.vec_d[0],
+                A_distributed.rows_this_rank, A_distributed.default_stream);
         }
         else {
             // p0 = r0
@@ -107,14 +107,21 @@ void preconditioned_conjugate_gradient(
         MPI_Allreduce(MPI_IN_PLACE, dot_h, 1, MPI_DOUBLE, MPI_SUM, comm);
 
         a = r_norm2_h[0] / dot_h[0];
+        na = -a;
+        r0 = r_norm2_h[0];
 
         // xk+1 = xk + ak * pk
-        cublasErrchk(hipblasDaxpy(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, &a, p_distributed.vec_d[0], 1, x_local_d, 1));
-
         // rk+1 = rk - ak * A * pk
-        na = -a;
-        cublasErrchk(hipblasDaxpy(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, &na, A_distributed.Ap_local_d, 1, r_local_d, 1));
-        r0 = r_norm2_h[0];
+        fused_daxpy(
+            a,
+            na,
+            p_distributed.vec_d[0],
+            A_distributed.Ap_local_d,
+            x_local_d,
+            r_local_d,
+            A_distributed.rows_this_rank,
+            A_distributed.default_stream
+        );
 
         // Mz = r
         precon.apply_preconditioner(
