@@ -6,11 +6,12 @@
 
 class Preconditioner{
 
-public:
-    virtual void  apply_preconditioner(
-        double *z_d,
-        double *r_d,
-        hipStream_t &default_stream) = 0;
+    public:
+        virtual void  apply_preconditioner(
+            double *z_d,
+            double *r_d,
+            hipStream_t &default_stream,
+            rocsparse_handle &default_rocsparseHandle) = 0;
 
 };
 
@@ -25,7 +26,8 @@ class Preconditioner_none : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
-            hipStream_t &default_stream) override;
+            hipStream_t &default_stream,
+            rocsparse_handle &default_rocsparseHandle) override;
 
 };
 
@@ -42,7 +44,8 @@ class Preconditioner_jacobi : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
-            hipStream_t &default_stream) override;
+            hipStream_t &default_stream,
+            rocsparse_handle &default_rocsparseHandle) override;
 
 };
 
@@ -60,6 +63,35 @@ class Preconditioner_jacobi_split : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
-            hipStream_t &default_stream) override;
+            hipStream_t &default_stream,
+            rocsparse_handle &default_rocsparseHandle) override;
+
+};
+
+class Preconditioner_block_icholesky : public Preconditioner{
+    private:
+        int rows_this_rank;
+        int nnz;
+        int *row_ptr_d;
+        int *col_ind_d;
+        double *data_d;
+        double *y_d;
+        double *x_d;
+
+        rocsparse_mat_descr descr_L;
+        rocsparse_mat_descr descr_Lt;
+        rocsparse_mat_info info;
+        void* temp_buffer_d;
+    public:
+        Preconditioner_block_icholesky(
+            Distributed_matrix &A_distributed
+        );
+        ~Preconditioner_block_icholesky();
+
+        void apply_preconditioner(
+            double *z_d,
+            double *r_d,
+            hipStream_t &default_stream,
+            rocsparse_handle &default_rocsparseHandle) override;
 
 };

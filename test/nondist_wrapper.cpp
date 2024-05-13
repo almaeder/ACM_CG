@@ -91,9 +91,9 @@ void test_preconditioned(
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_start = std::chrono::high_resolution_clock::now();
 
-        Preconditioner_jacobi precon(A_distributed);
+        Preconditioner_block_icholesky precon(A_distributed);
         
-        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_jacobi>(
+        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_block_icholesky>(
             A_distributed,
             p_distributed,
             r_local_d,
