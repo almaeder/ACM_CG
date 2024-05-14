@@ -11,7 +11,7 @@ class Preconditioner{
             double *z_d,
             double *r_d,
             hipStream_t &default_stream,
-            rocsparse_handle &default_rocsparseHandle) = 0;
+            hipsparseHandle_t &default_rocsparseHandle) = 0;
 
 };
 
@@ -27,7 +27,7 @@ class Preconditioner_none : public Preconditioner{
             double *z_d,
             double *r_d,
             hipStream_t &default_stream,
-            rocsparse_handle &default_rocsparseHandle) override;
+            hipsparseHandle_t &default_rocsparseHandle) override;
 
 };
 
@@ -45,7 +45,7 @@ class Preconditioner_jacobi : public Preconditioner{
             double *z_d,
             double *r_d,
             hipStream_t &default_stream,
-            rocsparse_handle &default_rocsparseHandle) override;
+            hipsparseHandle_t &default_rocsparseHandle) override;
 
 };
 
@@ -64,11 +64,11 @@ class Preconditioner_jacobi_split : public Preconditioner{
             double *z_d,
             double *r_d,
             hipStream_t &default_stream,
-            rocsparse_handle &default_rocsparseHandle) override;
+            hipsparseHandle_t &default_rocsparseHandle) override;
 
 };
 
-class Preconditioner_block_icholesky : public Preconditioner{
+class Preconditioner_block_ilu : public Preconditioner{
     private:
         int rows_this_rank;
         int nnz;
@@ -77,21 +77,24 @@ class Preconditioner_block_icholesky : public Preconditioner{
         double *data_d;
         double *y_d;
         double *x_d;
+        hipsparseDnVecDescr_t vecY, vecX;
 
-        rocsparse_mat_descr descr_L;
-        rocsparse_mat_descr descr_Lt;
-        rocsparse_mat_info info;
-        void* temp_buffer_d;
+        hipsparseSpMatDescr_t descr_L, descr_Lt;
+        hipsparseSpSVDescr_t spsvDescr_L, spsvDescr_Lt;
+        csrilu02Info_t info;
+        void *buffer_LLt_d, *buffer_L_d, *buffer_Lt_d;
+
+
     public:
-        Preconditioner_block_icholesky(
+        Preconditioner_block_ilu(
             Distributed_matrix &A_distributed
         );
-        ~Preconditioner_block_icholesky();
+        ~Preconditioner_block_ilu();
 
         void apply_preconditioner(
             double *z_d,
             double *r_d,
             hipStream_t &default_stream,
-            rocsparse_handle &default_rocsparseHandle) override;
+            hipsparseHandle_t &default_rocsparseHandle) override;
 
 };

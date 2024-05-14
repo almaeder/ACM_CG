@@ -10,7 +10,7 @@ void Preconditioner_none::apply_preconditioner(
     double *z_d,
     double *r_d,
     hipStream_t &default_stream,
-    rocsparse_handle &default_rocsparseHandle
+    hipsparseHandle_t &default_rocsparseHandle
 ){
     hipMemcpy(z_d, r_d, sizeof(double) * rows_this_rank, hipMemcpyDeviceToDevice);
 }
@@ -38,7 +38,7 @@ void Preconditioner_jacobi::apply_preconditioner(
     double *z_d,
     double *r_d,
     hipStream_t &default_stream,
-    rocsparse_handle &default_rocsparseHandle
+    hipsparseHandle_t &default_rocsparseHandle
 ){
     elementwise_vector_vector(
         r_d,
@@ -88,7 +88,7 @@ void Preconditioner_jacobi_split::apply_preconditioner(
     double *z_d,
     double *r_d,
     hipStream_t &default_stream,
-    rocsparse_handle &default_rocsparseHandle
+    hipsparseHandle_t &default_rocsparseHandle
 ){
     elementwise_vector_vector(
         r_d,
@@ -99,7 +99,7 @@ void Preconditioner_jacobi_split::apply_preconditioner(
     ); 
 }
 
-Preconditioner_block_icholesky::Preconditioner_block_icholesky(
+Preconditioner_block_ilu::Preconditioner_block_ilu(
     Distributed_matrix &A_distributed
 ){
     rows_this_rank = A_distributed.rows_this_rank;
@@ -116,99 +116,125 @@ Preconditioner_block_icholesky::Preconditioner_block_icholesky(
     hipMemcpy(data_d, A_distributed.datas_d[0], nnz*sizeof(double), hipMemcpyDeviceToDevice);
 
     // Create matrix descriptor for M
-    rocsparse_mat_descr descr_M;
-    rocsparse_create_mat_descr(&descr_M);
+    hipsparseMatDescr_t descr_LLt;
+    cusparseErrchk(hipsparseCreateMatDescr(
+        &descr_LLt));
+    cusparseErrchk(hipsparseSetMatType(
+        descr_LLt, HIPSPARSE_MATRIX_TYPE_GENERAL));
+    cusparseErrchk(hipsparseSetMatIndexBase(
+        descr_LLt, HIPSPARSE_INDEX_BASE_ZERO));
+
+
+    hipsparseFillMode_t   fill_lower    = HIPSPARSE_FILL_MODE_LOWER;
+    hipsparseDiagType_t   diag_unit     = HIPSPARSE_DIAG_TYPE_UNIT;
+    hipsparseFillMode_t   fill_upper    = HIPSPARSE_FILL_MODE_UPPER;
+    hipsparseDiagType_t   diag_non_unit = HIPSPARSE_DIAG_TYPE_NON_UNIT;
 
     // Create matrix descriptor for L
-    rocsparse_create_mat_descr(&descr_L);
-    rocsparse_set_mat_fill_mode(descr_L, rocsparse_fill_mode_lower);
-    rocsparse_set_mat_diag_type(descr_L, rocsparse_diag_type_unit);
+    cusparseErrchk(hipsparseCreateCsr(
+        &descr_L,
+        rows_this_rank,
+        rows_this_rank,
+        nnz,
+        row_ptr_d,
+        col_ind_d,
+        data_d,
+        HIPSPARSE_INDEX_32I,
+        HIPSPARSE_INDEX_32I,
+        HIPSPARSE_INDEX_BASE_ZERO,
+        HIP_R_64F
+    ));
+    cusparseErrchk(hipsparseSpMatSetAttribute(
+        descr_L, HIPSPARSE_SPMAT_FILL_MODE,
+        &fill_lower, sizeof(fill_lower)) );
+    cusparseErrchk(hipsparseSpMatSetAttribute(
+        descr_L, HIPSPARSE_SPMAT_DIAG_TYPE,
+        &diag_unit, sizeof(diag_unit)) );
 
     // Create matrix descriptor for L'
-    rocsparse_create_mat_descr(&descr_Lt);
-    rocsparse_set_mat_fill_mode(descr_Lt, rocsparse_fill_mode_upper);
-    rocsparse_set_mat_diag_type(descr_Lt, rocsparse_diag_type_non_unit);
+    cusparseErrchk(hipsparseCreateCsr(
+        &descr_Lt,
+        rows_this_rank,
+        rows_this_rank,
+        nnz,
+        row_ptr_d,
+        col_ind_d,
+        data_d,
+        HIPSPARSE_INDEX_32I,
+        HIPSPARSE_INDEX_32I,
+        HIPSPARSE_INDEX_BASE_ZERO,
+        HIP_R_64F
+    ));
+    cusparseErrchk(hipsparseSpMatSetAttribute(
+        descr_Lt, HIPSPARSE_SPMAT_FILL_MODE,
+        &fill_upper, sizeof(fill_upper)) );
+    cusparseErrchk(hipsparseSpMatSetAttribute(
+        descr_Lt, HIPSPARSE_SPMAT_DIAG_TYPE,
+        &diag_non_unit, sizeof(diag_non_unit)) );
 
-    // Create matrix info structure
-    rocsparse_create_mat_info(&info);
+
+    cusparseErrchk(hipsparseCreateCsrilu02Info(
+        &info
+    ));
+
     // Obtain required buffer size
-    size_t buffer_size_M;
+    int buffer_size_LLt;
     size_t buffer_size_L;
     size_t buffer_size_Lt;
-    rocsparse_dcsric0_buffer_size(A_distributed.default_rocsparseHandle,
-                                rows_this_rank,
-                                nnz,
-                                descr_M,
-                                data_d,
-                                row_ptr_d,
-                                col_ind_d,
-                                info,
-                                &buffer_size_M);
-    rocsparse_dcsrsv_buffer_size(A_distributed.default_rocsparseHandle,
-                                rocsparse_operation_none,
-                                rows_this_rank,
-                                nnz,
-                                descr_L,
-                                data_d,
-                                row_ptr_d,
-                                col_ind_d,
-                                info,
-                                &buffer_size_L);
-    rocsparse_dcsrsv_buffer_size(A_distributed.default_rocsparseHandle,
-                                rocsparse_operation_transpose,
-                                rows_this_rank,
-                                nnz,
-                                descr_Lt,
-                                data_d,
-                                row_ptr_d,
-                                col_ind_d,
-                                info,
-                                &buffer_size_Lt);
-    size_t buffer_size = max(buffer_size_M, max(buffer_size_L, buffer_size_Lt));
 
-    // Allocate temporary buffer
-    cudaErrchk(hipMalloc(&temp_buffer_d, buffer_size));
+    cusparseErrchk(hipsparseDcsrilu02_bufferSize(
+        A_distributed.default_cusparseHandle,
+        rows_this_rank,
+        nnz,
+        descr_LLt,
+        data_d,
+        row_ptr_d,
+        col_ind_d,
+        info,
+        &buffer_size_LLt
+    ));
+    cudaErrchk(hipMalloc(&buffer_LLt_d, buffer_size_LLt));
+
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecY, rows_this_rank, y_d, HIP_R_64F
+    ));
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecX, rows_this_rank, x_d, HIP_R_64F
+    ));
+
+    const double one = 1.0;
+    cusparseErrchk( hipsparseSpSV_createDescr(&spsvDescr_L) );
+    cusparseErrchk( hipsparseSpSV_bufferSize(
+        A_distributed.default_cusparseHandle, HIPSPARSE_OPERATION_NON_TRANSPOSE,
+        &one, descr_L, vecY, vecX, HIP_R_64F,
+        HIPSPARSE_SPSV_ALG_DEFAULT, spsvDescr_L, &buffer_size_L));
+    cudaErrchk( hipMalloc(&buffer_L_d, buffer_size_L) );
+
+    cusparseErrchk( hipsparseSpSV_createDescr(&spsvDescr_Lt) );
+    cusparseErrchk( hipsparseSpSV_bufferSize(
+        A_distributed.default_cusparseHandle, HIPSPARSE_OPERATION_NON_TRANSPOSE,
+        &one, descr_Lt, vecY, vecX, HIP_R_64F,
+        HIPSPARSE_SPSV_ALG_DEFAULT, spsvDescr_Lt, &buffer_size_Lt));
+    cudaErrchk( hipMalloc(&buffer_Lt_d, buffer_size_Lt) );
+
 
     // Perform analysis steps, using rocsparse_analysis_policy_reuse to improve
     // computation performance
-    rocsparse_dcsric0_analysis(A_distributed.default_rocsparseHandle,
-                            rows_this_rank,
-                            nnz,
-                            descr_M,
-                            data_d,
-                            row_ptr_d,
-                            col_ind_d,
-                            info,
-                            rocsparse_analysis_policy_reuse,
-                            rocsparse_solve_policy_auto,
-                            temp_buffer_d);
-    rocsparse_dcsrsv_analysis(A_distributed.default_rocsparseHandle,
-                            rocsparse_operation_none,
-                            rows_this_rank,
-                            nnz,
-                            descr_L,
-                            data_d,
-                            row_ptr_d,
-                            col_ind_d,
-                            info,
-                            rocsparse_analysis_policy_reuse,
-                            rocsparse_solve_policy_auto,
-                            temp_buffer_d);
-    rocsparse_dcsrsv_analysis(A_distributed.default_rocsparseHandle,
-                            rocsparse_operation_transpose,
-                            rows_this_rank,
-                            nnz,
-                            descr_Lt,
-                            data_d,
-                            row_ptr_d,
-                            col_ind_d,
-                            info,
-                            rocsparse_analysis_policy_reuse,
-                            rocsparse_solve_policy_auto,
-                            temp_buffer_d);
+    cusparseErrchk( hipsparseDcsrilu02_analysis(
+        A_distributed.default_cusparseHandle,
+        rows_this_rank,
+        nnz,
+        descr_LLt,
+        data_d,
+        row_ptr_d,
+        col_ind_d,
+        info,
+        HIPSPARSE_SOLVE_POLICY_NO_LEVEL,
+        buffer_LLt_d
+    ));
     // Check for zero pivot
-    rocsparse_int position;
-    if(rocsparse_status_zero_pivot == rocsparse_csric0_zero_pivot(A_distributed.default_rocsparseHandle,
+    int position;
+    if(HIPSPARSE_STATUS_ZERO_PIVOT == hipsparseXcsrilu02_zeroPivot(A_distributed.default_cusparseHandle,
                                                                 info,
                                                                 &position))
     {
@@ -216,110 +242,100 @@ Preconditioner_block_icholesky::Preconditioner_block_icholesky(
         exit(1);
     }
 
-    // Compute incomplete Cholesky factorization M = LL'
-    rocsparse_dcsric0(A_distributed.default_rocsparseHandle,
-                    rows_this_rank,
-                    nnz,
-                    descr_M,
-                    data_d,
-                    row_ptr_d,
-                    col_ind_d,
-                    info,
-                    rocsparse_solve_policy_auto,
-                    temp_buffer_d);
+    cusparseErrchk( hipsparseDcsrilu02(
+        A_distributed.default_cusparseHandle,
+        rows_this_rank,
+        nnz,
+        descr_LLt,
+        data_d,
+        row_ptr_d,
+        col_ind_d,
+        info,
+        HIPSPARSE_SOLVE_POLICY_NO_LEVEL,
+        buffer_LLt_d
+    ));
 
     // Check for zero pivot
-    if(rocsparse_status_zero_pivot == rocsparse_csric0_zero_pivot(A_distributed.default_rocsparseHandle,
+    if(HIPSPARSE_STATUS_ZERO_PIVOT == hipsparseXcsrilu02_zeroPivot(A_distributed.default_cusparseHandle,
                                                                 info,
                                                                 &position))
     {
-        printf("L has structural and/or numerical zero at L(%d,%d)\n",
-            position,
-            position);
+        printf("A has structural zero at A(%d,%d)\n", position, position);
         exit(1);
     }
 
-    rocsparse_destroy_mat_descr(descr_M);
+    cusparseErrchk(hipsparseSpSV_analysis(
+        A_distributed.default_cusparseHandle, 
+        HIPSPARSE_OPERATION_NON_TRANSPOSE, &one,
+        descr_L, vecY, vecX, HIP_R_64F,
+        HIPSPARSE_SPSV_ALG_DEFAULT, spsvDescr_L, buffer_L_d));
+
+    cusparseErrchk(hipsparseSpSV_analysis(
+        A_distributed.default_cusparseHandle,
+        HIPSPARSE_OPERATION_NON_TRANSPOSE, &one,
+        descr_Lt, vecY, vecX, HIP_R_64F,
+        HIPSPARSE_SPSV_ALG_DEFAULT, spsvDescr_Lt, buffer_Lt_d));
+
+
+    cusparseErrchk(hipsparseDestroyMatDescr(descr_LLt));
 
 }
-Preconditioner_block_icholesky::~Preconditioner_block_icholesky(){
+Preconditioner_block_ilu::~Preconditioner_block_ilu(){
     
     cudaErrchk(hipFree(row_ptr_d));
     cudaErrchk(hipFree(col_ind_d));
     cudaErrchk(hipFree(data_d));
     cudaErrchk(hipFree(y_d));
-    cudaErrchk(hipFree(temp_buffer_d));
-    rocsparse_destroy_mat_info(info);
-    rocsparse_destroy_mat_descr(descr_L);
-    rocsparse_destroy_mat_descr(descr_Lt);    
+    cudaErrchk(hipFree(x_d));
+    cudaErrchk(hipFree(buffer_LLt_d));
+    cudaErrchk(hipFree(buffer_L_d));
+    cudaErrchk(hipFree(buffer_Lt_d));
+
+    cusparseErrchk(hipsparseDestroyCsrilu02Info(info));
+    cusparseErrchk(hipsparseDestroySpMat(descr_L));
+    cusparseErrchk(hipsparseDestroySpMat(descr_Lt));    
+    cusparseErrchk(hipsparseDestroyDnVec(vecX));  
+    cusparseErrchk(hipsparseDestroyDnVec(vecY));  
 }
 
-void Preconditioner_block_icholesky::apply_preconditioner(
+void Preconditioner_block_ilu::apply_preconditioner(
     double *z_d,
     double *r_d,
     hipStream_t &default_stream,
-    rocsparse_handle &default_rocsparseHandle
+    hipsparseHandle_t &default_cusparseHandle
 ){
 
     cudaErrchk(hipMemcpy(x_d, r_d, rows_this_rank * sizeof(double), hipMemcpyDeviceToDevice))
 
+    hipsparseDnVecDescr_t vecZ;
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecZ, rows_this_rank, z_d, HIP_R_64F
+    ));
 
-    double alpha = 1.0;
+    const double one = 1.0;
     // Solve Ly = r
-    rocsparse_status status = rocsparse_dcsrsv_solve(default_rocsparseHandle,
-                        rocsparse_operation_none,
-                        rows_this_rank,
-                        nnz,
-                        &alpha,
+    cusparseErrchk(hipsparseSpSV_solve(default_cusparseHandle,
+                        HIPSPARSE_OPERATION_NON_TRANSPOSE,
+                        &one,
                         descr_L,
-                        data_d,
-                        row_ptr_d,
-                        col_ind_d,
-                        info,
-                        x_d,
-                        y_d,
-                        rocsparse_solve_policy_auto,
-                        temp_buffer_d);
+                        vecX,
+                        vecY,
+                        HIP_R_64F,
+                        HIPSPARSE_SPSV_ALG_DEFAULT,
+                        spsvDescr_L,
+                        buffer_L_d));
 
     // Solve L'z = y
-    rocsparse_status status_T = rocsparse_dcsrsv_solve(default_rocsparseHandle,
-                        rocsparse_operation_transpose,
-                        rows_this_rank,
-                        nnz,
-                        &alpha,
+    cusparseErrchk(hipsparseSpSV_solve(default_cusparseHandle,
+                        HIPSPARSE_OPERATION_NON_TRANSPOSE,
+                        &one,
                         descr_Lt,
-                        data_d,
-                        row_ptr_d,
-                        col_ind_d,
-                        info,
-                        y_d,
-                        z_d,
-                        rocsparse_solve_policy_auto,
-                        temp_buffer_d);
+                        vecY,
+                        vecZ,
+                        HIP_R_64F,
+                        HIPSPARSE_SPSV_ALG_DEFAULT,
+                        spsvDescr_Lt,
+                        buffer_Lt_d));
 
-    double *z_h = new double[rows_this_rank];
-    cudaErrchk(hipMemcpy(z_h, z_d, rows_this_rank*sizeof(double), hipMemcpyDeviceToHost));
-    double *r_h = new double[rows_this_rank];
-    cudaErrchk(hipMemcpy(r_h, r_d, rows_this_rank*sizeof(double), hipMemcpyDeviceToHost));
-
-    double tmp = 0;
-    for(int i = 0; i < rows_this_rank; i++){
-        tmp += z_h[i] * r_h[i];
-    }
-    std::cout << tmp << std::endl;
-
-
-    // for(int i = 0; i < 10; i++){
-    //     std::cout << z_h[i] << " ";
-    // }
-    // std::cout << std::endl;
-    // for(int i = 0; i < 10; i++){
-    //     std::cout << r_h[i] << " ";
-    // }
-    // std::cout << std::endl;
-
-    delete[] z_h; 
-    delete[] r_h;
-
-    // exit(0);
+    cusparseErrchk(hipsparseDestroyDnVec(vecZ));  
 }

@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     hipError_t set_device_error = hipSetDevice(0);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
-    int matsize = 2;
+    int matsize = 1600;
     std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices";
     std::string save_path ="/scratch/project_465000929/maederal/ACM_Poster/results/";
 
@@ -51,8 +51,8 @@ int main(int argc, char **argv) {
     int true_number_of_measurements = 1;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
 
-    int max_iterations = 20;
-    double relative_tolerance = 1e-6;
+    int max_iterations = 1000;
+    double relative_tolerance = 1e-9;
 
     double *data = new double[nnz];
     int *row_ptr = new int[matrix_size+1];

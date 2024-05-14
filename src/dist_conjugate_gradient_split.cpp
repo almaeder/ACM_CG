@@ -88,7 +88,7 @@ void preconditioned_conjugate_gradient_split(
         A_distributed.z_local_d,
         r_local_d,
         A_distributed.default_stream,
-        A_distributed.default_rocsparseHandle
+        A_distributed.default_cusparseHandle
     );
     
     // double r_norm2_true;
@@ -151,7 +151,7 @@ void preconditioned_conjugate_gradient_split(
             A_distributed.z_local_d,
             r_local_d,
             A_distributed.default_stream,
-            A_distributed.default_rocsparseHandle
+            A_distributed.default_cusparseHandle
         );
 
         // r_norm2_h = r0*r0
