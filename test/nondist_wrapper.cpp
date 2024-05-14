@@ -53,6 +53,7 @@ void test_preconditioned(
     }        
     algos[rank] = rocsparse_spmv_alg_csr_adaptive;
     // use class contructor where whole rows_this_rank*matrix_size is input
+    // TODO specialized class constructor which either do row block or split blocks
     // possible to directly give number_of_neighbors * (rows_this_rank*rows_other_rank) as input
     Distributed_matrix A_distributed(
         matrix_size,
@@ -91,9 +92,9 @@ void test_preconditioned(
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_start = std::chrono::high_resolution_clock::now();
 
-        Preconditioner_block_ilu precon(A_distributed);
+        Preconditioner_block_ic precon(A_distributed);
         
-        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_block_ilu>(
+        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_block_ic>(
             A_distributed,
             p_distributed,
             r_local_d,

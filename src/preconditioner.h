@@ -98,3 +98,33 @@ class Preconditioner_block_ilu : public Preconditioner{
             hipsparseHandle_t &default_rocsparseHandle) override;
 
 };
+class Preconditioner_block_ic : public Preconditioner{
+    private:
+        int rows_this_rank;
+        int nnz;
+        int *row_ptr_d;
+        int *col_ind_d;
+        double *data_d;
+        double *y_d;
+        double *x_d;
+        hipsparseDnVecDescr_t vecY, vecX;
+
+        hipsparseSpMatDescr_t descr_L, descr_Lt;
+        hipsparseSpSVDescr_t spsvDescr_L, spsvDescr_Lt;
+        csric02Info_t info;
+        void *buffer_LLt_d, *buffer_L_d, *buffer_Lt_d;
+
+
+    public:
+        Preconditioner_block_ic(
+            Distributed_matrix &A_distributed
+        );
+        ~Preconditioner_block_ic();
+
+        void apply_preconditioner(
+            double *z_d,
+            double *r_d,
+            hipStream_t &default_stream,
+            hipsparseHandle_t &default_rocsparseHandle) override;
+
+};
