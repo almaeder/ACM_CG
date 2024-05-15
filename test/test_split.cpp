@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
     hipError_t set_device_error = hipSetDevice(0);
     std::cout << "rank " << rank << " set_device_error " << set_device_error << std::endl;
 
-    int matsize = 111;
+    int matsize = 401;
     std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices/";
     std::string save_path ="/scratch/project_465000929/maederal/ACM_Poster/results/";
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
     }
 
     int max_iterations = 10000;
-    double relative_tolerance =  1e-21;
+    double relative_tolerance =  1e-5;
 
     int counts[size];
     int displacements[size];
@@ -260,29 +260,30 @@ int main(int argc, char **argv) {
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
-    int start_up_measurements = 0;
-    int true_number_of_measurements = 4;
+    int start_up_measurements = 1;
+    int true_number_of_measurements = 5;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
-    double time_tot[number_of_measurements];
-    double time_split_sparse1[number_of_measurements];
-    double time_split_sparse2[number_of_measurements];
-    double time_split_sparse3[number_of_measurements];
-    double time_split_sparse4[number_of_measurements];
+    
+    double times_none[number_of_measurements];
+    double times_jacobi[number_of_measurements];
+    double times_ic[number_of_measurements];
 
-    double *test_solution_tot_h = new double[matrix_size];
+    double *test_solution1_h = new double[matrix_size];
+    double *test_solution2_h = new double[matrix_size];
+    double *test_solution3_h = new double[matrix_size];
 
-    test_preconditioned<dspmv::manual_packing>(
+    test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_none>(
         data_tot,
         col_indices_tot,
         row_ptr_tot,
         rhs,
         starting_guess_h,
-        test_solution_tot_h,
+        test_solution1_h,
         matrix_size,
         relative_tolerance,
         max_iterations,
         MPI_COMM_WORLD,
-        time_tot,
+        times_none,
         number_of_measurements
     );
 
@@ -290,80 +291,145 @@ int main(int argc, char **argv) {
         double difference = 0;
         double sum_ref = 0;
         for (int i = 0; i < matrix_size; ++i) {
-            difference += std::sqrt( (test_solution_tot_h[i] - reference_solution[i]) *
-                (test_solution_tot_h[i] - reference_solution[i]) );
+            difference += std::sqrt( (test_solution1_h[i] - reference_solution[i]) *
+                (test_solution1_h[i] - reference_solution[i]) );
             sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
         }
         std::cout << "difference/sum_ref tot " << difference/sum_ref << std::endl;
     }
 
-    double *test_solution_split1_h = new double[matrix_size];
-
-    test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse1>(
-            data_sparse,
-            col_indices_sparse,
-            row_ptr_sparse,
-            subblock_indices,
-            data_subblock,
-            col_indices_subblock,
-            row_ptr_subblock,
-            subblock_size,
-            rhs,
-            starting_guess_h,
-            test_solution_split1_h,
-            matrix_size,
-            relative_tolerance,
-            max_iterations,
-            MPI_COMM_WORLD,
-            time_split_sparse1,
-            number_of_measurements
+    test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_jacobi>(
+        data_tot,
+        col_indices_tot,
+        row_ptr_tot,
+        rhs,
+        starting_guess_h,
+        test_solution2_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_jacobi,
+        number_of_measurements
     );
-
 
     if(rank == 0){
         double difference = 0;
         double sum_ref = 0;
         for (int i = 0; i < matrix_size; ++i) {
-            difference += std::sqrt( (test_solution_split1_h[i] - reference_solution[i]) *
-                (test_solution_split1_h[i] - reference_solution[i]) );
+            difference += std::sqrt( (test_solution2_h[i] - reference_solution[i]) *
+                (test_solution2_h[i] - reference_solution[i]) );
             sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
         }
-        std::cout << "difference/sum_ref split1 " << difference/sum_ref << std::endl;
+        std::cout << "difference/sum_ref tot " << difference/sum_ref << std::endl;
     }
+
+    test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_block_ic>(
+        data_tot,
+        col_indices_tot,
+        row_ptr_tot,
+        rhs,
+        starting_guess_h,
+        test_solution3_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_ic,
+        number_of_measurements
+    );
+
+    if(rank == 0){
+        double difference = 0;
+        double sum_ref = 0;
+        for (int i = 0; i < matrix_size; ++i) {
+            difference += std::sqrt( (test_solution3_h[i] - reference_solution[i]) *
+                (test_solution3_h[i] - reference_solution[i]) );
+            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+        }
+        std::cout << "difference/sum_ref tot " << difference/sum_ref << std::endl;
+    }
+
+    std::string path_none = get_filename(save_path, "precon_X_none", size, rank);
+    std::string path_jacobi = get_filename(save_path, "precon_X_jacobi", size, rank);
+    std::string path_ic = get_filename(save_path, "precon_X_ic", size, rank);
+
+    save_measurements(path_none,
+        times_none + start_up_measurements,
+        true_number_of_measurements, true);
+    save_measurements(path_jacobi,
+        times_jacobi + start_up_measurements,
+        true_number_of_measurements, true);
+    save_measurements(path_ic,
+        times_ic + start_up_measurements,
+        true_number_of_measurements, true);
+
+
+    // test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse1>(
+    //         data_sparse,
+    //         col_indices_sparse,
+    //         row_ptr_sparse,
+    //         subblock_indices,
+    //         data_subblock,
+    //         col_indices_subblock,
+    //         row_ptr_subblock,
+    //         subblock_size,
+    //         rhs,
+    //         starting_guess_h,
+    //         test_solution_split1_h,
+    //         matrix_size,
+    //         relative_tolerance,
+    //         max_iterations,
+    //         MPI_COMM_WORLD,
+    //         time_split_sparse1,
+    //         number_of_measurements
+    // );
+
+
+    // if(rank == 0){
+    //     double difference = 0;
+    //     double sum_ref = 0;
+    //     for (int i = 0; i < matrix_size; ++i) {
+    //         difference += std::sqrt( (test_solution_split1_h[i] - reference_solution[i]) *
+    //             (test_solution_split1_h[i] - reference_solution[i]) );
+    //         sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+    //     }
+    //     std::cout << "difference/sum_ref split1 " << difference/sum_ref << std::endl;
+    // }
     
-    double *test_solution_split4_h = new double[matrix_size];
+    // double *test_solution_split4_h = new double[matrix_size];
 
-    test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse4>(
-            data_sparse,
-            col_indices_sparse,
-            row_ptr_sparse,
-            subblock_indices,
-            data_subblock,
-            col_indices_subblock,
-            row_ptr_subblock,
-            subblock_size,
-            rhs,
-            starting_guess_h,
-            test_solution_split4_h,
-            matrix_size,
-            relative_tolerance,
-            max_iterations,
-            MPI_COMM_WORLD,
-            time_split_sparse4,
-            number_of_measurements
-    );
+    // test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse4>(
+    //         data_sparse,
+    //         col_indices_sparse,
+    //         row_ptr_sparse,
+    //         subblock_indices,
+    //         data_subblock,
+    //         col_indices_subblock,
+    //         row_ptr_subblock,
+    //         subblock_size,
+    //         rhs,
+    //         starting_guess_h,
+    //         test_solution_split4_h,
+    //         matrix_size,
+    //         relative_tolerance,
+    //         max_iterations,
+    //         MPI_COMM_WORLD,
+    //         time_split_sparse4,
+    //         number_of_measurements
+    // );
 
 
-    if(rank == 0){
-        double difference = 0;
-        double sum_ref = 0;
-        for (int i = 0; i < matrix_size; ++i) {
-            difference += std::sqrt( (test_solution_split4_h[i] - reference_solution[i]) *
-                (test_solution_split4_h[i] - reference_solution[i]) );
-            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
-        }
-        std::cout << "difference/sum_ref split4 " << difference/sum_ref << std::endl;
-    }
+    // if(rank == 0){
+    //     double difference = 0;
+    //     double sum_ref = 0;
+    //     for (int i = 0; i < matrix_size; ++i) {
+    //         difference += std::sqrt( (test_solution_split4_h[i] - reference_solution[i]) *
+    //             (test_solution_split4_h[i] - reference_solution[i]) );
+    //         sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+    //     }
+    //     std::cout << "difference/sum_ref split4 " << difference/sum_ref << std::endl;
+    // }
     
 
     delete[] data_sparse;
@@ -379,19 +445,6 @@ int main(int argc, char **argv) {
     delete[] data_subblock;
     delete[] row_ptr_subblock;
     delete[] col_indices_subblock;
-
-    delete[] test_solution_tot_h;
-    delete[] test_solution_split1_h;
-
-    // std::string path_solve_tot = get_filename(save_path, "solve_tot", 0, size, rank);
-    // std::string path_solve_split1 = get_filename(save_path, "solve_split1", 0, size, rank);
-
-    // save_measurements(path_solve_tot,
-    //     time_tot + start_up_measurements,
-    //     true_number_of_measurements, true);
-    // save_measurements(path_solve_split1,
-    //     time_split_sparse1 + start_up_measurements,
-    //     true_number_of_measurements, true);
 
     MPI_Finalize();
     return 0;

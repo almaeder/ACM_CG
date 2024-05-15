@@ -47,12 +47,12 @@ int main(int argc, char **argv) {
         std::cout << "nnz " << nnz << std::endl;
     }
 
-    int start_up_measurements = 0;
-    int true_number_of_measurements = 1;
+    int start_up_measurements = 4;
+    int true_number_of_measurements = 50;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
 
     int max_iterations = 1000;
-    double relative_tolerance = 1e-9;
+    double relative_tolerance = 1e-7;
 
     double *data = new double[nnz];
     int *row_ptr = new int[matrix_size+1];
@@ -114,11 +114,15 @@ int main(int argc, char **argv) {
     }
 
 
-
-    double times_gpu_packing[number_of_measurements];
+    double times_none[number_of_measurements];
+    double times_jacobi[number_of_measurements];
+    double times_ic[number_of_measurements];
 
     double *test_solution1_h = new double[matrix_size];
-    test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
+    double *test_solution2_h = new double[matrix_size];
+    double *test_solution3_h = new double[matrix_size];
+
+    test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_none>(
         data,
         col_indices,
         row_ptr,
@@ -129,7 +133,7 @@ int main(int argc, char **argv) {
         relative_tolerance,
         max_iterations,
         MPI_COMM_WORLD,
-        times_gpu_packing,
+        times_none,
         number_of_measurements
     );
 
@@ -143,20 +147,71 @@ int main(int argc, char **argv) {
         }
         std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
     }
+    test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_jacobi>(
+        data,
+        col_indices,
+        row_ptr,
+        rhs,
+        starting_guess_h,
+        test_solution2_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_jacobi,
+        number_of_measurements
+    );
+
+    if(rank == 0){
+        double difference = 0;
+        double sum_ref = 0;
+        for (int i = 0; i < matrix_size; ++i) {
+            difference += std::sqrt( (test_solution2_h[i] - reference_solution[i]) *
+                (test_solution2_h[i] - reference_solution[i]) );
+            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+        }
+        std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
+    }
+    test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ic>(
+        data,
+        col_indices,
+        row_ptr,
+        rhs,
+        starting_guess_h,
+        test_solution3_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_ic,
+        number_of_measurements
+    );
+
+    if(rank == 0){
+        double difference = 0;
+        double sum_ref = 0;
+        for (int i = 0; i < matrix_size; ++i) {
+            difference += std::sqrt( (test_solution3_h[i] - reference_solution[i]) *
+                (test_solution3_h[i] - reference_solution[i]) );
+            sum_ref += std::sqrt( (reference_solution[i]) * (reference_solution[i]) );
+        }
+        std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
+    }
 
 
+    std::string path_none = get_filename(save_path, "precon_none", size, rank);
+    std::string path_jacobi = get_filename(save_path, "precon_jacobi", size, rank);
+    std::string path_ic = get_filename(save_path, "precon_ic", size, rank);
 
-
-    // std::string path_solve_gpu_packing = get_filename(save_path, "solve_gpu_packing_"+std::to_string(matsize), size, rank);
-    // std::string path_solve_gpu_packing_cam = get_filename(save_path, "solve_gpu_packing_cam_"+std::to_string(matsize), size, rank);
-
-    // save_measurements(path_solve_gpu_packing,
-    //     times_gpu_packing + start_up_measurements,
-    //     true_number_of_measurements, true);
-    // save_measurements(path_solve_gpu_packing_cam,
-    //     times_gpu_packing_cam + start_up_measurements,
-    //     true_number_of_measurements, true);
-
+    save_measurements(path_none,
+        times_none + start_up_measurements,
+        true_number_of_measurements, true);
+    save_measurements(path_jacobi,
+        times_jacobi + start_up_measurements,
+        true_number_of_measurements, true);
+    save_measurements(path_ic,
+        times_ic + start_up_measurements,
+        true_number_of_measurements, true);
 
     delete[] data;
     delete[] row_ptr;

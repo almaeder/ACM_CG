@@ -9,6 +9,8 @@ Preconditioner_none::Preconditioner_none(
 void Preconditioner_none::apply_preconditioner(
     double *z_d,
     double *r_d,
+    hipsparseDnVecDescr_t vecZ,
+    hipsparseDnVecDescr_t vecR,
     hipStream_t &default_stream,
     hipsparseHandle_t &default_rocsparseHandle
 ){
@@ -37,6 +39,8 @@ Preconditioner_jacobi::~Preconditioner_jacobi(){
 void Preconditioner_jacobi::apply_preconditioner(
     double *z_d,
     double *r_d,
+    hipsparseDnVecDescr_t vecZ,
+    hipsparseDnVecDescr_t vecR,
     hipStream_t &default_stream,
     hipsparseHandle_t &default_rocsparseHandle
 ){
@@ -87,6 +91,8 @@ Preconditioner_jacobi_split::~Preconditioner_jacobi_split(){
 void Preconditioner_jacobi_split::apply_preconditioner(
     double *z_d,
     double *r_d,
+    hipsparseDnVecDescr_t vecZ,
+    hipsparseDnVecDescr_t vecR,
     hipStream_t &default_stream,
     hipsparseHandle_t &default_rocsparseHandle
 ){
@@ -301,16 +307,11 @@ Preconditioner_block_ilu::~Preconditioner_block_ilu(){
 void Preconditioner_block_ilu::apply_preconditioner(
     double *z_d,
     double *r_d,
+    hipsparseDnVecDescr_t vecZ,
+    hipsparseDnVecDescr_t vecR,
     hipStream_t &default_stream,
     hipsparseHandle_t &default_cusparseHandle
 ){
-
-    cudaErrchk(hipMemcpy(x_d, r_d, rows_this_rank * sizeof(double), hipMemcpyDeviceToDevice))
-
-    hipsparseDnVecDescr_t vecZ;
-    cusparseErrchk(hipsparseCreateDnVec(
-        &vecZ, rows_this_rank, z_d, HIP_R_64F
-    ));
 
     const double one = 1.0;
     // Solve Ly = r
@@ -318,7 +319,7 @@ void Preconditioner_block_ilu::apply_preconditioner(
                         HIPSPARSE_OPERATION_NON_TRANSPOSE,
                         &one,
                         descr_L,
-                        vecX,
+                        vecR,
                         vecY,
                         HIP_R_64F,
                         HIPSPARSE_SPSV_ALG_DEFAULT,
@@ -336,8 +337,6 @@ void Preconditioner_block_ilu::apply_preconditioner(
                         HIPSPARSE_SPSV_ALG_DEFAULT,
                         spsvDescr_Lt,
                         buffer_Lt_d));
-
-    cusparseErrchk(hipsparseDestroyDnVec(vecZ));  
 }
 
 
@@ -543,16 +542,11 @@ Preconditioner_block_ic::~Preconditioner_block_ic(){
 void Preconditioner_block_ic::apply_preconditioner(
     double *z_d,
     double *r_d,
+    hipsparseDnVecDescr_t vecZ,
+    hipsparseDnVecDescr_t vecR,
     hipStream_t &default_stream,
     hipsparseHandle_t &default_cusparseHandle
 ){
-
-    cudaErrchk(hipMemcpy(x_d, r_d, rows_this_rank * sizeof(double), hipMemcpyDeviceToDevice))
-
-    hipsparseDnVecDescr_t vecZ;
-    cusparseErrchk(hipsparseCreateDnVec(
-        &vecZ, rows_this_rank, z_d, HIP_R_64F
-    ));
 
     const double one = 1.0;
     // Solve Ly = r
@@ -560,7 +554,7 @@ void Preconditioner_block_ic::apply_preconditioner(
                         HIPSPARSE_OPERATION_NON_TRANSPOSE,
                         &one,
                         descr_L,
-                        vecX,
+                        vecR,
                         vecY,
                         HIP_R_64F,
                         HIPSPARSE_SPSV_ALG_DEFAULT,
@@ -578,6 +572,4 @@ void Preconditioner_block_ic::apply_preconditioner(
                         HIPSPARSE_SPSV_ALG_DEFAULT,
                         spsvDescr_Lt,
                         buffer_Lt_d));
-
-    cusparseErrchk(hipsparseDestroyDnVec(vecZ));  
 }

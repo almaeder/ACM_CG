@@ -49,10 +49,10 @@ Distributed_subblock::Distributed_subblock(
     cudaErrchk(hipMemcpy((this->row_ptr_compressed_d), row_ptr_compressed_d, (counts_subblock[rank]+1) * sizeof(int), hipMemcpyDeviceToDevice));
 
     cudaErrchk(hipMalloc(&(col_indices_uncompressed_d), nnz * sizeof(int)));
-    cudaErrchk(hipMalloc(&(row_uncompressed_d), (matrix_size+1) * sizeof(int)));
+    cudaErrchk(hipMalloc(&(row_ptr_uncompressed_d), (matrix_size+1) * sizeof(int)));
 
     expand_row_ptr(
-        row_uncompressed_d,
+        row_ptr_uncompressed_d,
         row_ptr_compressed_d,
         subblock_indices_local_d,
         matrix_size,
@@ -65,6 +65,18 @@ Distributed_subblock::Distributed_subblock(
         nnz,
         subblock_size
     );
+
+    int *col_indices_uncompressed_h = new int[nnz];
+    int *row_ptr_uncompressed_h = new int[matrix_size+1];
+    cudaErrchk(hipMemcpy(col_indices_uncompressed_h, col_indices_uncompressed_d, nnz*sizeof(int), hipMemcpyDeviceToHost));
+    cudaErrchk(hipMemcpy(row_ptr_uncompressed_h, row_ptr_uncompressed_d, (matrix_size+1)*sizeof(int), hipMemcpyDeviceToHost));
+
+    std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices/";
+    save_bin_array2<int>(col_indices_uncompressed_h, nnz, data_path + "X_indices_uncompressed.bin");
+    save_bin_array2<int>(row_ptr_uncompressed_h, matrix_size+1, data_path + "X_ptr_uncompressed.bin");
+
+    delete[] col_indices_uncompressed_h;
+    delete[] row_ptr_uncompressed_h;
 
     // descriptor_compressed for subblock
     rocsparse_create_csr_descr(&descriptor_compressed,
@@ -129,7 +141,7 @@ Distributed_subblock::Distributed_subblock(
                             counts[rank],
                             matrix_size,
                             nnz,
-                            this->row_uncompressed_d,
+                            this->row_ptr_uncompressed_d,
                             this->col_indices_uncompressed_d,
                             this->data_d,
                             rocsparse_indextype_i32,

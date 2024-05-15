@@ -1,11 +1,6 @@
 #include "dist_conjugate_gradient.h"
 #include "dist_spmv.h"
 
-#include <cfloat>
-#include <cmath>
-#include <iostream>
-#include <limits>
-
 namespace iterative_solver{
 
 template <void (*distributed_spmv)(
@@ -26,15 +21,20 @@ void preconditioned_conjugate_gradient(
     Precon &precon)
 {
 
-    // initialize cuda
-
-    // // set pointer mode to host
-    // cublasErrchk(hipblasSetPointerMode(default_cublasHandle, HIPBLAS_POINTER_MODE_HOST)); // TEST @Manasa
+    hipsparseDnVecDescr_t vecR;
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecR, A_distributed.rows_this_rank, r_local_d, HIP_R_64F
+    ));
+    hipsparseDnVecDescr_t vecZ;
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecZ, A_distributed.rows_this_rank, A_distributed.z_local_d, HIP_R_64F
+    ));
 
     double a, b, na;
     double alpha, alpham1, r0;
-    double    r_norm2_h[1];
-    double    dot_h[1];
+    double r_norm2_h[1];
+    double norm2_r;
+    double dot_h[1];
     alpha = 1.0;
     alpham1 = -1.0;
     r0 = 0.0;
@@ -72,14 +72,20 @@ void preconditioned_conjugate_gradient(
     precon.apply_preconditioner(
         A_distributed.z_local_d,
         r_local_d,
+        vecZ,
+        vecR,
         A_distributed.default_stream,
         A_distributed.default_cusparseHandle
     );
     
     cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, A_distributed.z_local_d, 1, r_norm2_h));
     MPI_Allreduce(MPI_IN_PLACE, r_norm2_h, 1, MPI_DOUBLE, MPI_SUM, comm);
+
+    cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, r_local_d, 1, &norm2_r));
+    MPI_Allreduce(MPI_IN_PLACE, &norm2_r, 1, MPI_DOUBLE, MPI_SUM, comm);
+
     int k = 1;
-    while (r_norm2_h[0]/norm2_rhs > relative_tolerance * relative_tolerance && k <= max_iterations) {
+    while (norm2_r/norm2_rhs > relative_tolerance * relative_tolerance && k <= max_iterations) {
         if(k > 1){
             // pk+1 = zk+1 + b*pk
             b = r_norm2_h[0] / r0;
@@ -125,6 +131,8 @@ void preconditioned_conjugate_gradient(
         precon.apply_preconditioner(
             A_distributed.z_local_d,
             r_local_d,
+            vecZ,
+            vecR,
             A_distributed.default_stream,
             A_distributed.default_cusparseHandle
         );
@@ -133,14 +141,22 @@ void preconditioned_conjugate_gradient(
         // r_norm2_h = rn*zn
         cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, A_distributed.z_local_d, 1, r_norm2_h));
         MPI_Allreduce(MPI_IN_PLACE, r_norm2_h, 1, MPI_DOUBLE, MPI_SUM, comm);
+
+        // norm2_r = rn*rn
+        cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, r_local_d, 1, &norm2_r));
+        MPI_Allreduce(MPI_IN_PLACE, &norm2_r, 1, MPI_DOUBLE, MPI_SUM, comm);
+
         k++;
     }
 
     //end CG
     cudaErrchk(hipDeviceSynchronize());
     if(A_distributed.rank == 0){
-        std::cout << "iteration = " << k << ", relative residual = " << sqrt(r_norm2_h[0]/norm2_rhs) << std::endl;
+        std::cout << "iteration = " << k << ", relative residual = " << sqrt(norm2_r/norm2_rhs) << std::endl;
     }
+
+    cusparseErrchk(hipsparseDestroyDnVec(vecR)); 
+    cusparseErrchk(hipsparseDestroyDnVec(vecZ)); 
 
 }
 

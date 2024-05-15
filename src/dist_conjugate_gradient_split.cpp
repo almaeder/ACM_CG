@@ -27,6 +27,16 @@ void preconditioned_conjugate_gradient_split(
     MPI_Comm comm,
     Precon &precon)
 {
+
+    hipsparseDnVecDescr_t vecR;
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecR, A_distributed.rows_this_rank, r_local_d, HIP_R_64F
+    ));
+    hipsparseDnVecDescr_t vecZ;
+    cusparseErrchk(hipsparseCreateDnVec(
+        &vecZ, A_distributed.rows_this_rank, A_distributed.z_local_d, HIP_R_64F
+    ));
+
     double a, b, na;
     double alpha, alpham1, r0;
     double    r_norm2_h[1];
@@ -87,6 +97,8 @@ void preconditioned_conjugate_gradient_split(
     precon.apply_preconditioner(
         A_distributed.z_local_d,
         r_local_d,
+        vecZ,
+        vecR,
         A_distributed.default_stream,
         A_distributed.default_cusparseHandle
     );
@@ -150,6 +162,8 @@ void preconditioned_conjugate_gradient_split(
         precon.apply_preconditioner(
             A_distributed.z_local_d,
             r_local_d,
+            vecZ,
+            vecR,
             A_distributed.default_stream,
             A_distributed.default_cusparseHandle
         );
@@ -172,6 +186,9 @@ void preconditioned_conjugate_gradient_split(
     cudaErrchk(hipFree(Ap_subblock_d));
     cusparseErrchk(hipsparseDestroyDnVec(vecAp_subblock));
     cudaErrchk(hipHostFree(p_subblock_h));
+
+    cusparseErrchk(hipsparseDestroyDnVec(vecR)); 
+    cusparseErrchk(hipsparseDestroyDnVec(vecZ)); 
 
 }
 template 

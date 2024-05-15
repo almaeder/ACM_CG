@@ -158,3 +158,6 @@ void elementwise_vector_vector(
     double *result,
     int size,
     hipStream_t stream);
+
+template <typename T>
+void save_bin_array2(T* array, int numElements, const std::string& filename);

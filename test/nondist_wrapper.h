@@ -7,7 +7,7 @@
 #include <hipblas.h>
 #include "utils.h"
 
-template <void (*distributed_spmv)(Distributed_matrix&, Distributed_vector&, rocsparse_dnvec_descr&, hipStream_t&, rocsparse_handle&)>
+template <void (*distributed_spmv)(Distributed_matrix&, Distributed_vector&, rocsparse_dnvec_descr&, hipStream_t&, rocsparse_handle&), typename Precon>
 void test_preconditioned(
     double *data_h,
     int *col_indices_h,

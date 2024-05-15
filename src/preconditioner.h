@@ -10,6 +10,8 @@ class Preconditioner{
         virtual void  apply_preconditioner(
             double *z_d,
             double *r_d,
+            hipsparseDnVecDescr_t vecZ,
+            hipsparseDnVecDescr_t vecR,
             hipStream_t &default_stream,
             hipsparseHandle_t &default_rocsparseHandle) = 0;
 
@@ -26,6 +28,8 @@ class Preconditioner_none : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
+            hipsparseDnVecDescr_t vecZ,
+            hipsparseDnVecDescr_t vecR,
             hipStream_t &default_stream,
             hipsparseHandle_t &default_rocsparseHandle) override;
 
@@ -44,6 +48,8 @@ class Preconditioner_jacobi : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
+            hipsparseDnVecDescr_t vecZ,
+            hipsparseDnVecDescr_t vecR,
             hipStream_t &default_stream,
             hipsparseHandle_t &default_rocsparseHandle) override;
 
@@ -63,6 +69,8 @@ class Preconditioner_jacobi_split : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
+            hipsparseDnVecDescr_t vecZ,
+            hipsparseDnVecDescr_t vecR,
             hipStream_t &default_stream,
             hipsparseHandle_t &default_rocsparseHandle) override;
 
@@ -94,6 +102,8 @@ class Preconditioner_block_ilu : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
+            hipsparseDnVecDescr_t vecZ,
+            hipsparseDnVecDescr_t vecR,
             hipStream_t &default_stream,
             hipsparseHandle_t &default_rocsparseHandle) override;
 
@@ -124,6 +134,8 @@ class Preconditioner_block_ic : public Preconditioner{
         void apply_preconditioner(
             double *z_d,
             double *r_d,
+            hipsparseDnVecDescr_t vecZ,
+            hipsparseDnVecDescr_t vecR,
             hipStream_t &default_stream,
             hipsparseHandle_t &default_rocsparseHandle) override;
 

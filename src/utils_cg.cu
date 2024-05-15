@@ -646,3 +646,17 @@ void elementwise_vector_vector(
         size
     );
 }
+
+template <typename T>
+void save_bin_array2(T* array, int numElements, const std::string& filename) {
+    std::ofstream file(filename, std::ios::binary);
+    if (file.is_open()) {
+        file.write(reinterpret_cast<char*>(array), numElements*sizeof(T));
+        file.close();
+        std::cout << "Array data written to file: " << filename << std::endl;
+    } else {
+        std::cerr << "Unable to open the file for writing." << std::endl;
+    }
+}
+template void save_bin_array2<double>(double* array, int numElements, const std::string& filename);
+template void save_bin_array2<int>(int* array, int numElements, const std::string& filename);

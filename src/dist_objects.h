@@ -57,7 +57,7 @@ class Distributed_subblock{
 
         int nnz;
         double *data_d;
-        int *row_uncompressed_d;
+        int *row_ptr_uncompressed_d;
         int *row_ptr_compressed_d;
         int *col_indices_uncompressed_d;
         int *col_indices_compressed_d;

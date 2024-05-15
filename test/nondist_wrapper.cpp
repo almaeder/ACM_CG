@@ -1,6 +1,6 @@
 #include "nondist_wrapper.h"
 
-template <void (*distributed_spmv)(Distributed_matrix&, Distributed_vector&, rocsparse_dnvec_descr&, hipStream_t&, rocsparse_handle&)>
+template <void (*distributed_spmv)(Distributed_matrix&, Distributed_vector&, rocsparse_dnvec_descr&, hipStream_t&, rocsparse_handle&), typename Precon>
 void test_preconditioned(
     double *data_h,
     int *col_indices_h,
@@ -92,9 +92,9 @@ void test_preconditioned(
         MPI_Barrier(MPI_COMM_WORLD);
         auto time_start = std::chrono::high_resolution_clock::now();
 
-        Preconditioner_block_ic precon(A_distributed);
+        Precon precon(A_distributed);
         
-        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Preconditioner_block_ic>(
+        iterative_solver::preconditioned_conjugate_gradient<distributed_spmv, Precon>(
             A_distributed,
             p_distributed,
             r_local_d,
@@ -127,7 +127,7 @@ void test_preconditioned(
     hipFree(x_local_d);
 }
 template 
-void test_preconditioned<dspmv::alltoall_cam>(
+void test_preconditioned<dspmv::alltoall_cam, Preconditioner_none>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -141,7 +141,7 @@ void test_preconditioned<dspmv::alltoall_cam>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::pointpoint_singlekernel_cam>(
+void test_preconditioned<dspmv::alltoall_cam, Preconditioner_jacobi>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -155,7 +155,7 @@ void test_preconditioned<dspmv::pointpoint_singlekernel_cam>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
+void test_preconditioned<dspmv::alltoall_cam, Preconditioner_block_ilu>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -169,35 +169,7 @@ void test_preconditioned<dspmv::pointpoint_singlekernel_cam2>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::manual_packing>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-template 
-void test_preconditioned<dspmv::manual_packing_cam>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-template 
-void test_preconditioned<dspmv::manual_packing_cam2>(
+void test_preconditioned<dspmv::alltoall_cam, Preconditioner_block_ic>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -211,6 +183,119 @@ void test_preconditioned<dspmv::manual_packing_cam2>(
     double *time_taken,
     int number_of_measurements);
 
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+
+template 
+void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
 
 template <void (*distributed_spmv_split)
     (Distributed_subblock &,

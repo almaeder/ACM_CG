@@ -53,6 +53,59 @@ void manual_packing_cam2(
     hipStream_t &default_stream,
     rocsparse_handle &default_rocsparseHandle);
 
+
+// void alltoall(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+// void pointpoint_overlap(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+// void pointpoint_overlap_compressed(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+// void manual_packing_overlap(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+// void manual_packing_overlap_compressed(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+
+
+// void pointpoint_singlekernel_cam(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+// void pointpoint_singlekernel_cam2(
+//     Distributed_matrix &A_distributed,
+//     Distributed_vector &p_distributed,
+//     rocsparse_dnvec_descr &vecAp_local,
+//     hipStream_t &default_stream,
+//     rocsparse_handle &default_rocsparseHandle);
+
+
 } // namespace dspmv
 
 namespace dspmv_split_sparse{
