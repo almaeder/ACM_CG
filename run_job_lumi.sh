@@ -83,7 +83,7 @@ exec \$*
 EOF
 chmod +x ./select_gpu
 
-# srun ./select_gpu build/test
-srun --cpu-bind=${CPU_BIND} ./select_gpu ./build/test
-# srun --cpu-bind=${CPU_BIND} ./wrapper.sh --hip-trace ./select_gpu ./build/test
-# srun ./wrapper.sh --hip-trace ./select_gpu ./build/test
+# srun ./select_gpu build/test_split
+srun --cpu-bind=${CPU_BIND} ./select_gpu ./build/test_split
+# srun --cpu-bind=${CPU_BIND} ./wrapper.sh --hip-trace ./select_gpu ./build/test_split
+# srun ./wrapper.sh --hip-trace ./select_gpu ./build/test_split

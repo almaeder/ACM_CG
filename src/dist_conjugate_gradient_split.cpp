@@ -192,7 +192,7 @@ void preconditioned_conjugate_gradient_split(
 
 }
 template 
-void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse1, Preconditioner_jacobi_split>(
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::manual_packing_overlap_compressed1, Preconditioner_jacobi_split>(
     Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
@@ -203,7 +203,7 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     MPI_Comm comm,
     Preconditioner_jacobi_split &precon);
 template 
-void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse2, Preconditioner_jacobi_split>(
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::manual_packing_overlap_compressed2, Preconditioner_jacobi_split>(
     Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
@@ -214,7 +214,7 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     MPI_Comm comm,
     Preconditioner_jacobi_split &precon);
 template 
-void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse3, Preconditioner_jacobi_split>(
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::uncompressed_manual_packing, Preconditioner_jacobi_split>(
     Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
@@ -225,7 +225,7 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     MPI_Comm comm,
     Preconditioner_jacobi_split &precon);
 template 
-void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_sparse4, Preconditioner_jacobi_split>(
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::manual_packing_singlekernel_compressed1, Preconditioner_jacobi_split>(
     Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
@@ -235,6 +235,27 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::spmm_split_spar
     int max_iterations,
     MPI_Comm comm,
     Preconditioner_jacobi_split &precon);
-
+template 
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::manual_packing_singlekernel_compressed2, Preconditioner_jacobi_split>(
+    Distributed_subblock &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi_split &precon);
+template 
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::uncompressed_manual_singlekernel, Preconditioner_jacobi_split>(
+    Distributed_subblock &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi_split &precon);
 
 } // namespace iterative_solver

@@ -593,10 +593,21 @@ void test_preconditioned_split_sparse(
     }
 
     rocsparse_spmv_alg algos[size];
-    for(int k = 0; k < size; k++){
-        algos[k] = rocsparse_spmv_alg_csr_stream;
-    }        
-    algos[rank] = rocsparse_spmv_alg_csr_adaptive;
+
+    if(rank == 0){
+        algos[0] = rocsparse_spmv_alg_csr_adaptive;
+        for(int k = 1; k < size-1; k++){
+            algos[k] = rocsparse_spmv_alg_csr_stream;
+        }        
+        algos[size-1] = rocsparse_spmv_alg_csr_adaptive;
+    }
+    else{
+        algos[0] = rocsparse_spmv_alg_csr_adaptive;
+        for(int k = 1; k < size; k++){
+            algos[k] = rocsparse_spmv_alg_csr_stream;
+        }     
+    }
+
 
     // use class contructor where whole rows_this_rank*matrix_size is input
     // possible to directly give number_of_neighbors * (rows_this_rank*rows_other_rank) as input
@@ -764,7 +775,7 @@ void test_preconditioned_split_sparse(
 }
 
 template 
-void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse1>(
+void test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_overlap_compressed1>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -782,7 +793,7 @@ void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse1>(
     MPI_Comm comm,
     double *time_taken, int number_of_measurements);
 template 
-void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse2>(
+void test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_overlap_compressed2>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -800,7 +811,7 @@ void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse2>(
     MPI_Comm comm,
     double *time_taken, int number_of_measurements);
 template 
-void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse3>(
+void test_preconditioned_split_sparse<dspmv_split_sparse::uncompressed_manual_packing>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -818,7 +829,43 @@ void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse3>(
     MPI_Comm comm,
     double *time_taken, int number_of_measurements);
 template 
-void test_preconditioned_split_sparse<dspmv_split_sparse::spmm_split_sparse4>(
+void test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed1>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    int *subblock_indices_h,
+    double *subblock_data_h,
+    int *subblock_col_indices_h,
+    int *subblock_row_ptr_h,
+    int subblock_size,
+    double *r_h,
+    double *reference_solution,
+    double *starting_guess_h,
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken, int number_of_measurements);
+template 
+void test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed2>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    int *subblock_indices_h,
+    double *subblock_data_h,
+    int *subblock_col_indices_h,
+    int *subblock_row_ptr_h,
+    int subblock_size,
+    double *r_h,
+    double *reference_solution,
+    double *starting_guess_h,
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken, int number_of_measurements);
+template 
+void test_preconditioned_split_sparse<dspmv_split_sparse::uncompressed_manual_singlekernel>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
