@@ -127,7 +127,7 @@ void test_preconditioned(
     hipFree(x_local_d);
 }
 template 
-void test_preconditioned<dspmv::alltoall_cam, Preconditioner_none>(
+void test_preconditioned<dspmv::alltoall, Preconditioner_none>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -141,7 +141,7 @@ void test_preconditioned<dspmv::alltoall_cam, Preconditioner_none>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::alltoall_cam, Preconditioner_jacobi>(
+void test_preconditioned<dspmv::alltoall, Preconditioner_jacobi>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -155,7 +155,7 @@ void test_preconditioned<dspmv::alltoall_cam, Preconditioner_jacobi>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::alltoall_cam, Preconditioner_block_ilu>(
+void test_preconditioned<dspmv::alltoall, Preconditioner_block_ilu>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -169,64 +169,7 @@ void test_preconditioned<dspmv::alltoall_cam, Preconditioner_block_ilu>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::alltoall_cam, Preconditioner_block_ic>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-
-template 
-void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_none>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-template 
-void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_jacobi>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-template 
-void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ilu>(
-    double *data_h,
-    int *col_indices_h,
-    int *row_indptr_h,
-    double *r_h,
-    double *starting_guess_h,
-    double *test_solution_h,    
-    int matrix_size,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    double *time_taken,
-    int number_of_measurements);
-template 
-void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ic>(
+void test_preconditioned<dspmv::alltoall, Preconditioner_block_ic>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -241,7 +184,7 @@ void test_preconditioned<dspmv::pointpoint_singlekernel_cam2, Preconditioner_blo
     int number_of_measurements);
 
 template 
-void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_none>(
+void test_preconditioned<dspmv::pointpoint_overlap, Preconditioner_none>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -255,7 +198,7 @@ void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_none>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_jacobi>(
+void test_preconditioned<dspmv::pointpoint_overlap, Preconditioner_jacobi>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -269,7 +212,7 @@ void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_jacobi>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_block_ilu>(
+void test_preconditioned<dspmv::pointpoint_overlap, Preconditioner_block_ilu>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
@@ -283,7 +226,292 @@ void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_block_ilu>(
     double *time_taken,
     int number_of_measurements);
 template 
-void test_preconditioned<dspmv::manual_packing_cam2, Preconditioner_block_ic>(
+void test_preconditioned<dspmv::pointpoint_overlap, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+
+template 
+void test_preconditioned<dspmv::manual_packing_overlap, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+
+template 
+void test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::pointpoint_singlekernel, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_none>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_jacobi>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_block_ilu>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_block_ic>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,

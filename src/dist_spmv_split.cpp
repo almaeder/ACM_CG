@@ -46,7 +46,7 @@ void spmm_split_sparse1(
         }
     }
 
-    dspmv::manual_packing_cam(
+    dspmv::manual_packing_overlap(
         A_distributed,
         p_distributed,
         vecAp_local,
@@ -403,7 +403,7 @@ void spmm_split_sparse4(
         }
     }
 
-    dspmv::manual_packing_cam(
+    dspmv::manual_packing_overlap(
         A_distributed,
         p_distributed,
         vecAp_local,

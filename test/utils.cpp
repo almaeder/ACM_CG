@@ -147,3 +147,18 @@ std::string get_filename(
 
     return full_path;
 }
+
+void relative_error(
+    int matrix_size,
+    double *test_solution_h,
+    double *reference_solution_h
+){
+    double difference = 0;
+    double sum_ref = 0;
+    for (int i = 0; i < matrix_size; ++i) {
+        difference += std::sqrt( (test_solution_h[i] - reference_solution_h[i]) *
+            (test_solution_h[i] - reference_solution_h[i]) );
+        sum_ref += std::sqrt( (reference_solution_h[i]) * (reference_solution_h[i]) );
+    }
+    std::cout << "difference/sum_ref " << difference/sum_ref << std::endl;
+}

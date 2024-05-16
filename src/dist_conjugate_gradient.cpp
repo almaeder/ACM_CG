@@ -33,7 +33,6 @@ void preconditioned_conjugate_gradient(
     double a, b, na;
     double alpha, alpham1, r0;
     double r_norm2_h[1];
-    double norm2_r;
     double dot_h[1];
     alpha = 1.0;
     alpham1 = -1.0;
@@ -81,11 +80,8 @@ void preconditioned_conjugate_gradient(
     cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, A_distributed.z_local_d, 1, r_norm2_h));
     MPI_Allreduce(MPI_IN_PLACE, r_norm2_h, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-    cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, r_local_d, 1, &norm2_r));
-    MPI_Allreduce(MPI_IN_PLACE, &norm2_r, 1, MPI_DOUBLE, MPI_SUM, comm);
-
     int k = 1;
-    while (norm2_r/norm2_rhs > relative_tolerance * relative_tolerance && k <= max_iterations) {
+    while (r_norm2_h[0]/norm2_rhs > relative_tolerance * relative_tolerance && k <= max_iterations) {
         if(k > 1){
             // pk+1 = zk+1 + b*pk
             b = r_norm2_h[0] / r0;
@@ -142,17 +138,13 @@ void preconditioned_conjugate_gradient(
         cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, A_distributed.z_local_d, 1, r_norm2_h));
         MPI_Allreduce(MPI_IN_PLACE, r_norm2_h, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-        // norm2_r = rn*rn
-        cublasErrchk(hipblasDdot(A_distributed.default_cublasHandle, A_distributed.rows_this_rank, r_local_d, 1, r_local_d, 1, &norm2_r));
-        MPI_Allreduce(MPI_IN_PLACE, &norm2_r, 1, MPI_DOUBLE, MPI_SUM, comm);
-
         k++;
     }
 
     //end CG
     cudaErrchk(hipDeviceSynchronize());
     if(A_distributed.rank == 0){
-        std::cout << "iteration = " << k << ", relative residual = " << sqrt(norm2_r/norm2_rhs) << std::endl;
+        std::cout << "iteration = " << k << ", relative residual = " << sqrt(r_norm2_h[0]/norm2_rhs) << std::endl;
     }
 
     cusparseErrchk(hipsparseDestroyDnVec(vecR)); 
@@ -161,7 +153,7 @@ void preconditioned_conjugate_gradient(
 }
 
 template 
-void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_none>(
+void preconditioned_conjugate_gradient<dspmv::alltoall, Preconditioner_none>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -171,7 +163,7 @@ void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_none>
     MPI_Comm comm,
     Preconditioner_none &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_jacobi>(
+void preconditioned_conjugate_gradient<dspmv::alltoall, Preconditioner_jacobi>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -181,7 +173,7 @@ void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_jacob
     MPI_Comm comm,
     Preconditioner_jacobi &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_block_ilu>(
+void preconditioned_conjugate_gradient<dspmv::alltoall, Preconditioner_block_ilu>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -191,49 +183,7 @@ void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_block
     MPI_Comm comm,
     Preconditioner_block_ilu &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::alltoall_cam, Preconditioner_block_ic>(
-    Distributed_matrix &A_distributed,
-    Distributed_vector &p_distributed,
-    double *r_local_d,
-    double *x_local_d,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    Preconditioner_block_ic &precon);
-
-
-template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam, Preconditioner_none>(
-    Distributed_matrix &A_distributed,
-    Distributed_vector &p_distributed,
-    double *r_local_d,
-    double *x_local_d,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    Preconditioner_none &precon);
-template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam, Preconditioner_jacobi>(
-    Distributed_matrix &A_distributed,
-    Distributed_vector &p_distributed,
-    double *r_local_d,
-    double *x_local_d,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    Preconditioner_jacobi &precon);
-template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam, Preconditioner_block_ilu>(
-    Distributed_matrix &A_distributed,
-    Distributed_vector &p_distributed,
-    double *r_local_d,
-    double *x_local_d,
-    double relative_tolerance,
-    int max_iterations,
-    MPI_Comm comm,
-    Preconditioner_block_ilu &precon);
-template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam, Preconditioner_block_ic>(
+void preconditioned_conjugate_gradient<dspmv::alltoall, Preconditioner_block_ic>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -244,7 +194,7 @@ void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam, Preco
     Preconditioner_block_ic &precon);
 
 template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Preconditioner_none>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_overlap, Preconditioner_none>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -254,7 +204,7 @@ void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Prec
     MPI_Comm comm,
     Preconditioner_none &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Preconditioner_jacobi>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_overlap, Preconditioner_jacobi>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -264,7 +214,7 @@ void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Prec
     MPI_Comm comm,
     Preconditioner_jacobi &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ilu>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_overlap, Preconditioner_block_ilu>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -274,7 +224,7 @@ void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Prec
     MPI_Comm comm,
     Preconditioner_block_ilu &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Preconditioner_block_ic>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_overlap, Preconditioner_block_ic>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -285,7 +235,7 @@ void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel_cam2, Prec
     Preconditioner_block_ic &precon);
 
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_none>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap, Preconditioner_none>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -295,7 +245,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_non
     MPI_Comm comm,
     Preconditioner_none &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_jacobi>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap, Preconditioner_jacobi>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -305,7 +255,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_jac
     MPI_Comm comm,
     Preconditioner_jacobi &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_block_ilu>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap, Preconditioner_block_ilu>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -315,7 +265,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_blo
     MPI_Comm comm,
     Preconditioner_block_ilu &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_block_ic>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap, Preconditioner_block_ic>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -326,7 +276,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing, Preconditioner_blo
     Preconditioner_block_ic &precon);
 
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner_none>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap_compressed, Preconditioner_none>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -336,7 +286,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner
     MPI_Comm comm,
     Preconditioner_none &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner_jacobi>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap_compressed, Preconditioner_jacobi>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -346,7 +296,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner
     MPI_Comm comm,
     Preconditioner_jacobi &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner_block_ilu>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap_compressed, Preconditioner_block_ilu>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -356,7 +306,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner
     MPI_Comm comm,
     Preconditioner_block_ilu &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner_block_ic>(
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap_compressed, Preconditioner_block_ic>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -366,9 +316,8 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam, Preconditioner
     MPI_Comm comm,
     Preconditioner_block_ic &precon);
 
-
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditioner_none>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel, Preconditioner_none>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -378,7 +327,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditione
     MPI_Comm comm,
     Preconditioner_none &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditioner_jacobi>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel, Preconditioner_jacobi>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -388,7 +337,7 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditione
     MPI_Comm comm,
     Preconditioner_jacobi &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditioner_block_ilu>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel, Preconditioner_block_ilu>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,
@@ -398,7 +347,89 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditione
     MPI_Comm comm,
     Preconditioner_block_ilu &precon);
 template 
-void preconditioned_conjugate_gradient<dspmv::manual_packing_cam2, Preconditioner_block_ic>(
+void preconditioned_conjugate_gradient<dspmv::pointpoint_singlekernel, Preconditioner_block_ic>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_block_ic &precon);
+
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel, Preconditioner_none>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_none &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel, Preconditioner_jacobi>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel, Preconditioner_block_ilu>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_block_ilu &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel, Preconditioner_block_ic>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_block_ic &precon);
+
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel_compressed, Preconditioner_none>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_none &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel_compressed, Preconditioner_jacobi>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel_compressed, Preconditioner_block_ilu>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_block_ilu &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel_compressed, Preconditioner_block_ic>(
     Distributed_matrix &A_distributed,
     Distributed_vector &p_distributed,
     double *r_local_d,

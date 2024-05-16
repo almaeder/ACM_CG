@@ -50,3 +50,8 @@ std::string get_filename(
     std::string filename,
     int size,
     int rank);
+
+void relative_error(
+    int matrix_size,
+    double *test_solution_h,
+    double *reference_solution_h);
