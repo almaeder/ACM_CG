@@ -256,6 +256,41 @@ void compress_block_col_ind(
     // compression[cols_per_neighbour_d[k]] = k
     // compression[col_inds_d[j]] = col_inds_d[j] - cols_per_neighbour_d[...]
     // helper array to compress
+
+    // std::cout << nnz << " " << number_cols << " " << number_cols_compressed << std::endl;
+    
+    // int *compression_indices_h = new int[number_cols_compressed];
+    // cudaErrchk(hipMemcpy(compression_indices_h,
+    //     compression_indices_d, (number_cols_compressed)*sizeof(int), hipMemcpyDeviceToHost));
+
+    // int max = 0;
+    // for(int i = 0; i < number_cols_compressed; i++){
+    //     int val = compression_indices_h[i];
+    //     if(val < 0){
+    //         std::cout << "error " << i << std::endl;
+    //     }
+    //     if(val > max){
+    //         max = val;
+    //     }
+    // }
+    // if(max >= number_cols){
+    //     std::cout << "error " << std::endl;
+    // }
+    // int *tmp = new int[number_cols];
+    // for(int i = 0; i < number_cols; i++){
+    //     tmp[i] = 0;
+    // }
+    // // for(int i = 0; i < number_cols_compressed; i++){
+    // //     tmp[compression_indices_h[i]] += 1;
+    // // }
+
+    // for(int i = 0; i < number_cols; i++){
+    //     if(tmp[i] > 1){
+    //         std::cout << "error " << i << std::endl;
+    //     }
+    // }   
+
+
     int *compression_d;
     cudaErrchk(hipMalloc((void **)&compression_d,
         number_cols * sizeof(int)));
@@ -275,6 +310,7 @@ void compress_block_col_ind(
         nnz);
 
     cudaErrchk(hipFree(compression_d));
+
 }
 
 

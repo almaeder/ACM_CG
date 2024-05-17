@@ -143,6 +143,8 @@ Distributed_matrix::Distributed_matrix(
     create_cg_overhead();
 
     compress_col_inds();
+
+
 }
 
 
@@ -801,6 +803,9 @@ void Distributed_matrix::compress_col_inds(
             number_cols_neighbour,
             nnz_cols_per_neighbour[k]
         );
+    }
+
+    for(int k = 1; k < number_of_neighbours; k++){
 
         double *vec_in_d;
         double *vec_out_d;
@@ -841,6 +846,7 @@ void Distributed_matrix::compress_col_inds(
             algos_generic[k],
             &buffers_size_compressed[k],
             nullptr));
+
         cudaErrchk(hipMalloc(&buffers_compressed_d[k], buffers_size_compressed[k]));
 
         rocsparse_destroy_dnvec_descr(vec_in);
@@ -851,7 +857,7 @@ void Distributed_matrix::compress_col_inds(
 
     }
 
-    recv_buffer_descriptor = new rocsparse_dnvec_descr[number_of_neighbours-1];
+    recv_buffer_descriptor = new rocsparse_dnvec_descr[number_of_neighbours];
 
     for(int k = 1; k < number_of_neighbours; k++){
         int neighbour_idx = neighbours[k];
@@ -863,6 +869,7 @@ void Distributed_matrix::compress_col_inds(
     }
 
     rocsparse_destroy_handle(rocsparseHandle);
+
 }
 
 void Distributed_matrix::compress_col_ind(

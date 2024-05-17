@@ -46,8 +46,8 @@ if __name__ == "__main__":
     plt.spy(mat, markersize=0.0000001, color="darkgreen", aspect='equal', alpha=0.5)
     plt.spy(sparse_matrix, markersize=0.0001, aspect='equal')
 
-    ax.set_yticks([0, 4*1e5], minor=False)
-    ax.set_xticks([0, 4*1e5], minor=False)
+    ax.set_yticks([], minor=False)
+    ax.set_xticks([], minor=False)
     ax.get_yaxis().get_offset_text().set_visible(False)
     ax.get_xaxis().get_offset_text().set_position((0.5,0))
     # plt.axis('off')

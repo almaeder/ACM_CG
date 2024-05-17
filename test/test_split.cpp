@@ -261,16 +261,22 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     int start_up_measurements = 2;
-    int true_number_of_measurements = 7;
+    int true_number_of_measurements = 5;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
     
-    double times_not_split[number_of_measurements];
-    double times_split_uncompressed[number_of_measurements];
-    double times_split_compressed[number_of_measurements];
+    double times_not_split_overlap[number_of_measurements];
+    double times_not_split_singelkernel[number_of_measurements];
+    double times_overlap_compressed1[number_of_measurements];
+    double times_overlap_compressed2[number_of_measurements];
+    double times_singlekernel_compressed1[number_of_measurements];
+    double times_singlekernel_compressed2[number_of_measurements];
 
     double *test_solution1_h = new double[matrix_size];
     double *test_solution2_h = new double[matrix_size];
     double *test_solution3_h = new double[matrix_size];
+    double *test_solution4_h = new double[matrix_size];
+    double *test_solution5_h = new double[matrix_size];
+    double *test_solution6_h = new double[matrix_size];
 
     test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_jacobi>(
         data_tot,
@@ -283,7 +289,7 @@ int main(int argc, char **argv) {
         relative_tolerance,
         max_iterations,
         MPI_COMM_WORLD,
-        times_not_split,
+        times_not_split_overlap,
         number_of_measurements
     );
 
@@ -291,26 +297,20 @@ int main(int argc, char **argv) {
         relative_error(matrix_size, test_solution1_h, reference_solution);
     }
 
-    test_preconditioned_split_sparse<dspmv_split_sparse::uncompressed_manual_packing>(
-            data_sparse,
-            col_indices_sparse,
-            row_ptr_sparse,
-            subblock_indices,
-            data_subblock,
-            col_indices_subblock,
-            row_ptr_subblock,
-            subblock_size,
-            rhs,
-            starting_guess_h,
-            test_solution2_h,
-            matrix_size,
-            relative_tolerance,
-            max_iterations,
-            MPI_COMM_WORLD,
-            times_split_uncompressed,
-            number_of_measurements
+    test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_jacobi>(
+        data_tot,
+        col_indices_tot,
+        row_ptr_tot,
+        rhs,
+        starting_guess_h,
+        test_solution2_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_not_split_singelkernel,
+        number_of_measurements
     );
-
 
     if(rank == 0){
         relative_error(matrix_size, test_solution2_h, reference_solution);
@@ -332,31 +332,107 @@ int main(int argc, char **argv) {
             relative_tolerance,
             max_iterations,
             MPI_COMM_WORLD,
-            times_split_compressed,
+            times_overlap_compressed1,
             number_of_measurements
     );
-
-
     if(rank == 0){
         relative_error(matrix_size, test_solution3_h, reference_solution);
     }
 
+    test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_overlap_compressed2>(
+            data_sparse,
+            col_indices_sparse,
+            row_ptr_sparse,
+            subblock_indices,
+            data_subblock,
+            col_indices_subblock,
+            row_ptr_subblock,
+            subblock_size,
+            rhs,
+            starting_guess_h,
+            test_solution4_h,
+            matrix_size,
+            relative_tolerance,
+            max_iterations,
+            MPI_COMM_WORLD,
+            times_overlap_compressed2,
+            number_of_measurements
+    );
+    if(rank == 0){
+        relative_error(matrix_size, test_solution4_h, reference_solution);
+    }
 
+    test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed1>(
+            data_sparse,
+            col_indices_sparse,
+            row_ptr_sparse,
+            subblock_indices,
+            data_subblock,
+            col_indices_subblock,
+            row_ptr_subblock,
+            subblock_size,
+            rhs,
+            starting_guess_h,
+            test_solution5_h,
+            matrix_size,
+            relative_tolerance,
+            max_iterations,
+            MPI_COMM_WORLD,
+            times_singlekernel_compressed1,
+            number_of_measurements
+    );
+    if(rank == 0){
+        relative_error(matrix_size, test_solution5_h, reference_solution);
+    }
 
-    std::string path_not_split = get_filename(save_path, "X_not_split", size, rank);
-    std::string path_split_uncompressed = get_filename(save_path, "X_uncompressed", size, rank);
-    std::string path_split_compressed = get_filename(save_path, "X_compressed", size, rank);
+    test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed2>(
+            data_sparse,
+            col_indices_sparse,
+            row_ptr_sparse,
+            subblock_indices,
+            data_subblock,
+            col_indices_subblock,
+            row_ptr_subblock,
+            subblock_size,
+            rhs,
+            starting_guess_h,
+            test_solution6_h,
+            matrix_size,
+            relative_tolerance,
+            max_iterations,
+            MPI_COMM_WORLD,
+            times_singlekernel_compressed2,
+            number_of_measurements
+    );
+    if(rank == 0){
+        relative_error(matrix_size, test_solution6_h, reference_solution);
+    }
 
-    save_measurements(path_not_split,
-        times_not_split + start_up_measurements,
+    std::string path_not_split_overlap = get_filename(save_path, "X_not_split_overlap", size, rank);
+    std::string path_not_split_singelkernel = get_filename(save_path, "X_not_split_singelkernel", size, rank);
+    std::string path_overlap_compressed1 = get_filename(save_path, "X_overlap_compressed1", size, rank);
+    std::string path_overlap_compressed2 = get_filename(save_path, "X_overlap_compressed2", size, rank);
+    std::string path_singlekernel_compressed1 = get_filename(save_path, "X_singlekernel_compressed1", size, rank);
+    std::string path_singlekernel_compressed2 = get_filename(save_path, "X_singlekernel_compressed2", size, rank);
+
+    save_measurements(path_not_split_overlap,
+        times_not_split_overlap + start_up_measurements,
         true_number_of_measurements, true);
-    save_measurements(path_split_uncompressed,
-        times_split_uncompressed + start_up_measurements,
+    save_measurements(path_not_split_singelkernel,
+        times_not_split_singelkernel + start_up_measurements,
         true_number_of_measurements, true);
-    save_measurements(path_split_compressed,
-        times_split_compressed + start_up_measurements,
+    save_measurements(path_overlap_compressed1,
+        times_overlap_compressed1 + start_up_measurements,
         true_number_of_measurements, true);
-
+    save_measurements(path_overlap_compressed2,
+        times_overlap_compressed2 + start_up_measurements,
+        true_number_of_measurements, true);
+    save_measurements(path_singlekernel_compressed1,
+        times_singlekernel_compressed1 + start_up_measurements,
+        true_number_of_measurements, true);
+    save_measurements(path_singlekernel_compressed2,
+        times_singlekernel_compressed2 + start_up_measurements,
+        true_number_of_measurements, true);
 
     delete[] data_sparse;
     delete[] row_ptr_sparse;

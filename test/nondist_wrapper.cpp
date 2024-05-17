@@ -49,7 +49,7 @@ void test_preconditioned(
 
     rocsparse_spmv_alg algos[size];
     for(int k = 0; k < size; k++){
-        algos[k] = rocsparse_spmv_alg_csr_stream;
+        algos[k] = rocsparse_spmv_alg_csr_adaptive;
     }        
     algos[rank] = rocsparse_spmv_alg_csr_adaptive;
     // use class contructor where whole rows_this_rank*matrix_size is input
@@ -607,7 +607,6 @@ void test_preconditioned_split_sparse(
             algos[k] = rocsparse_spmv_alg_csr_stream;
         }     
     }
-
 
     // use class contructor where whole rows_this_rank*matrix_size is input
     // possible to directly give number_of_neighbors * (rows_this_rank*rows_other_rank) as input

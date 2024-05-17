@@ -21,32 +21,20 @@ if __name__ == "__main__":
 
     data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices/"
 
-    matsize = 1600
-    row_ptr = np.fromfile(data_path + "K_row_ptr_" + str(matsize) + ".bin", dtype=np.int32)
-    col_indices = np.fromfile(data_path + "K_col_indices_" + str(matsize) + ".bin", dtype=np.int32)
+    matsize = 401
+    row_ptr = np.fromfile(data_path + "X_subblock_row_ptr_" + str(matsize) + ".bin", dtype=np.int32)
+    col_indices = np.fromfile(data_path + "X_subblock_col_indices_" + str(matsize) + ".bin", dtype=np.int32)
 
     sparse_matrix = sparse.csr_matrix(
         (np.ones_like(col_indices, dtype=float), col_indices, row_ptr), dtype=float)
 
     fig, ax = plt.subplots()
     fig.set_size_inches(12, 12)
-    plt.spy(sparse_matrix, markersize=0.0001)
+    plt.spy(sparse_matrix[:10000,:], markersize=0.0001)
 
     ax.set_yticks([], minor=False)
     ax.set_xticks([], minor=False)
     ax.get_yaxis().get_offset_text().set_visible(False)
     # ax.get_xaxis().get_offset_text().set_position((0.5,0))
     # plt.axis('off')
-    plt.savefig("K_matrix.png", bbox_inches='tight', dpi=300)
-
-    plt.close('all')
-    fig, ax = plt.subplots()
-    fig.set_size_inches(12, 12)
-    plt.spy(sparse_matrix[:50000,:50000], markersize=0.0001, aspect='equal')
-
-    ax.set_yticks([], minor=False)
-    ax.set_xticks([], minor=False)
-    ax.get_yaxis().get_offset_text().set_visible(False)
-    ax.get_xaxis().get_offset_text().set_position((0.5,0))
-    # plt.axis('off')
-    plt.savefig("K_matrix_zoom.png", bbox_inches='tight', dpi=1000)
+    plt.savefig("X_subblock.png", bbox_inches='tight', dpi=600)
