@@ -247,6 +247,17 @@ void preconditioned_conjugate_gradient_split<dspmv_split_sparse::manual_packing_
     MPI_Comm comm,
     Preconditioner_jacobi_split &precon);
 template 
+void preconditioned_conjugate_gradient_split<dspmv_split_sparse::manual_packing_singlekernel_compressed3, Preconditioner_jacobi_split>(
+    Distributed_subblock &A_subblock,
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi_split &precon); 
+template 
 void preconditioned_conjugate_gradient_split<dspmv_split_sparse::uncompressed_manual_singlekernel, Preconditioner_jacobi_split>(
     Distributed_subblock &A_subblock,
     Distributed_matrix &A_distributed,

@@ -66,18 +66,6 @@ Distributed_subblock::Distributed_subblock(
         subblock_size
     );
 
-    // int *col_indices_uncompressed_h = new int[nnz];
-    // int *row_ptr_uncompressed_h = new int[matrix_size+1];
-    // cudaErrchk(hipMemcpy(col_indices_uncompressed_h, col_indices_uncompressed_d, nnz*sizeof(int), hipMemcpyDeviceToHost));
-    // cudaErrchk(hipMemcpy(row_ptr_uncompressed_h, row_ptr_uncompressed_d, (matrix_size+1)*sizeof(int), hipMemcpyDeviceToHost));
-
-    // std::string data_path = "/scratch/project_465000929/maederal/ACM_Poster/matrices/";
-    // save_bin_array2<int>(col_indices_uncompressed_h, nnz, data_path + "X_indices_uncompressed.bin");
-    // save_bin_array2<int>(row_ptr_uncompressed_h, matrix_size+1, data_path + "X_ptr_uncompressed.bin");
-
-    // delete[] col_indices_uncompressed_h;
-    // delete[] row_ptr_uncompressed_h;
-
     // descriptor_compressed for subblock
     rocsparse_create_csr_descr(&descriptor_compressed,
                             counts_subblock[rank],
@@ -136,7 +124,7 @@ Distributed_subblock::Distributed_subblock(
 
     cudaErrchk(hipMalloc(&buffer_compressed_d, buffersize_compressed));
 
-    // descriptor_compressed for subblock
+    // descriptor_uncompressed for subblock
     rocsparse_create_csr_descr(&descriptor_uncompressed,
                             counts[rank],
                             matrix_size,
@@ -185,18 +173,21 @@ Distributed_subblock::Distributed_subblock(
 
     rocsparse_destroy_handle(rocsparse_handle);
 
-
+    events_send = new hipEvent_t[size];
     events_recv = new hipEvent_t[size];
     streams_recv = new hipStream_t[size-1];
     send_requests = new MPI_Request[size-1];
     recv_requests = new MPI_Request[size-1];
 
     for(int i = 0; i < size; i++){
+        cudaErrchk(hipEventCreateWithFlags(&events_send[i], hipEventDisableTiming));
         cudaErrchk(hipEventCreateWithFlags(&events_recv[i], hipEventDisableTiming));
     }
     for(int i = 0; i < size-1; i++){
         cudaErrchk(hipStreamCreate(&streams_recv[i]));
     }
+
+    analyze();
 
 }
 
@@ -210,12 +201,14 @@ Distributed_subblock::~Distributed_subblock(){
     delete[] recv_requests;
 
     for(int i = 0; i < size; i++){
+        hipEventDestroy(events_send[i]);
         hipEventDestroy(events_recv[i]);
     }
     for(int i = 0; i < size-1; i++){
         hipStreamDestroy(streams_recv[i]);
     }
 
+    delete[] events_send;
     delete[] events_recv;
     delete[] streams_recv;
 
@@ -226,4 +219,187 @@ Distributed_subblock::~Distributed_subblock(){
 
     hipFree(buffer_compressed_d);
     rocsparse_destroy_spmat_descr(descriptor_compressed);
+
+    delete[] neighbours;
+    delete[] nnz_cols_per_neighbour;
+    delete[] nnz_rows_per_neighbour;
+
+    for(int i = 0; i < number_of_neighbours; i++){
+        delete[] cols_per_neighbour_h[i];
+        delete[] rows_per_neighbour_h[i];
+        cudaErrchk(hipFree(cols_per_neighbour_d[i]));
+        cudaErrchk(hipFree(rows_per_neighbour_d[i]));
+    }
+
+    delete[] cols_per_neighbour_h;
+    delete[] cols_per_neighbour_d;
+    delete[] rows_per_neighbour_h;
+    delete[] rows_per_neighbour_d;
+
+    for(int i = 0; i < number_of_neighbours; i++){
+        cudaErrchk(hipFree(send_buffer_d[i]));
+        cudaErrchk(hipFree(recv_buffer_d[i]));
+    }
+    delete[] send_buffer_d;
+    delete[] recv_buffer_d;
 };
+
+void Distributed_subblock::analyze(){
+
+    // goal is to find
+    // nnz_cols_per_neighbour
+    // nnz_rows_per_neighbour
+    // cols_per_neighbour_d
+    // rows_per_neighbour_d
+
+
+    // first host approach to figure out best way
+    int *row_ptr_compressed_h = new int[counts_subblock[rank]+1];
+    int *col_indices_compressed_h = new int[nnz];
+    cudaErrchk(hipMemcpy(row_ptr_compressed_h, row_ptr_compressed_d, (counts_subblock[rank]+1) * sizeof(int), hipMemcpyDeviceToHost));
+    cudaErrchk(hipMemcpy(col_indices_compressed_h, col_indices_compressed_d, nnz * sizeof(int), hipMemcpyDeviceToHost));
+
+
+    // mark rows and columns with non zero elements
+    int *nz_cols = new int[subblock_size];
+    int *nz_rows = new int[size*counts_subblock[rank]];
+    for(int i = 0; i < subblock_size; i++){
+        nz_cols[i] = 0;
+    }
+    for(int i = 0; i < size*counts_subblock[rank]; i++){
+        nz_rows[i] = 0;
+    }
+
+
+    for(int i = 0; i < counts_subblock[rank]; i++){
+        for(int j = row_ptr_compressed_h[i]; j < row_ptr_compressed_h[i+1]; j++){
+            nz_cols[col_indices_compressed_h[j]] = 1;
+        }
+    }
+    // arraz of 000..,111..., etc
+    int *helper_array = new int[subblock_size];
+    for(int i = 0; i < size; i++){
+        for(int j = 0; j < counts_subblock[i]; j++){
+            helper_array[displacements_subblock[i] + j] = i;
+        }
+    }
+    for(int i = 0; i < counts_subblock[rank]; i++){
+        for(int j = row_ptr_compressed_h[i]; j < row_ptr_compressed_h[i+1]; j++){
+            nz_rows[i + counts_subblock[rank]*helper_array[col_indices_compressed_h[j]] ] = 1;
+        }
+    }
+    // force your own piece to be one
+    for(int i = 0; i < counts_subblock[rank]; i++){
+        nz_cols[i + displacements_subblock[rank]] = 1;
+        nz_rows[i + counts_subblock[rank]*rank] = 1;
+    }
+    int *nnz_cols_per_rank = new int[size];
+    int *nnz_rows_per_rank = new int[size];
+
+    for(int i = 0; i < size; i++){
+        nnz_cols_per_rank[i] = 0;
+        for(int j = 0; j < counts_subblock[i]; j++){
+            if(nz_cols[displacements_subblock[i] +  j] > 0){
+                nnz_cols_per_rank[i]++;
+            }
+        }
+    }
+    
+
+    for(int i = 0; i < size; i++){
+        nnz_rows_per_rank[i] = 0;
+        for(int j = 0; j < counts_subblock[rank]; j++){
+            if(nz_rows[i*counts_subblock[rank] +  j] > 0){
+                nnz_rows_per_rank[i]++;
+            }
+        }
+    }
+    number_of_neighbours = 0;
+    int number_of_neighbours2 = 0;
+    
+    for(int i = 0; i < size; i++){
+        if(nnz_cols_per_rank[i] > 0){
+            number_of_neighbours++;
+        }
+        if(nnz_rows_per_rank[i] > 0){
+            number_of_neighbours2++;
+        }
+    }
+    if(number_of_neighbours2 != number_of_neighbours){
+        printf("Error in number of neighbours\n");
+        exit(1);
+    }
+    neighbours = new int[number_of_neighbours];
+    int count_neighbours = 0;
+    for(int i = 0; i < size; i++){
+        int idx = (rank + i) % size;
+        if(nnz_cols_per_rank[idx] > 0){
+            neighbours[count_neighbours] = idx;
+            count_neighbours++;
+        }
+    }
+    nnz_cols_per_neighbour = new int[number_of_neighbours];
+    nnz_rows_per_neighbour = new int[number_of_neighbours];
+    for(int i = 0; i < number_of_neighbours; i++){
+        nnz_cols_per_neighbour[i] = nnz_cols_per_rank[neighbours[i]];
+        nnz_rows_per_neighbour[i] = nnz_rows_per_rank[neighbours[i]];
+        // std::cout << rank << " " << i << " " << neighbours[i] << " " << nnz_cols_per_neighbour[i] << " " << nnz_rows_per_neighbour[i] << std::endl;
+    }
+    // std::cout << rank << " " << counts_subblock[rank] << std::endl;
+    // MPI_Barrier(comm);
+    // exit(1);
+
+    cols_per_neighbour_h = new int*[number_of_neighbours];
+    rows_per_neighbour_h = new int*[number_of_neighbours];
+    for(int i = 0; i < number_of_neighbours; i++){
+        cols_per_neighbour_h[i] = new int[nnz_cols_per_neighbour[i]];
+        rows_per_neighbour_h[i] = new int[nnz_rows_per_neighbour[i]];
+    }
+    for(int i = 0; i < number_of_neighbours; i++){
+        int idx = neighbours[i];
+        int count_cols = 0;
+        int count_rows = 0;
+        // todo do on the gpu with copy if
+        for(int j = 0; j < counts_subblock[idx]; j++){
+            if(nz_cols[displacements_subblock[idx] +  j] > 0){
+                cols_per_neighbour_h[i][count_cols] = j;
+                count_cols++;
+            }
+        }
+        for(int j = 0; j < counts_subblock[rank]; j++){
+            if(nz_rows[idx*counts_subblock[rank] +  j] > 0){
+                rows_per_neighbour_h[i][count_rows] = j;
+                count_rows++;
+            }
+        }
+    }
+    cols_per_neighbour_d = new int*[number_of_neighbours];
+    rows_per_neighbour_d = new int*[number_of_neighbours];
+    for(int i = 0; i < number_of_neighbours; i++){
+        cudaErrchk(hipMalloc(&cols_per_neighbour_d[i], nnz_cols_per_neighbour[i] * sizeof(int)));
+        cudaErrchk(hipMalloc(&rows_per_neighbour_d[i], nnz_rows_per_neighbour[i] * sizeof(int)));
+        cudaErrchk(hipMemcpy(cols_per_neighbour_d[i], cols_per_neighbour_h[i], nnz_cols_per_neighbour[i] * sizeof(int), hipMemcpyHostToDevice));
+        cudaErrchk(hipMemcpy(rows_per_neighbour_d[i], rows_per_neighbour_h[i], nnz_rows_per_neighbour[i] * sizeof(int), hipMemcpyHostToDevice));
+    }
+
+    send_buffer_d = new double*[number_of_neighbours];
+    recv_buffer_d = new double*[number_of_neighbours];
+    for(int i = 0; i < number_of_neighbours; i++){
+        cudaErrchk(hipMalloc(&send_buffer_d[i], nnz_rows_per_neighbour[i] * sizeof(double)));
+        cudaErrchk(hipMalloc(&recv_buffer_d[i], nnz_cols_per_neighbour[i] * sizeof(double)));
+    }
+
+
+
+
+    delete[] row_ptr_compressed_h;
+    delete[] col_indices_compressed_h;
+
+    delete[] nz_cols;
+    delete[] nz_rows;
+
+    delete[] helper_array;
+    delete[] nnz_cols_per_rank;
+    delete[] nnz_rows_per_rank;
+
+}

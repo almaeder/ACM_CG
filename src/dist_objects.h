@@ -72,10 +72,24 @@ class Distributed_subblock{
 
         rocsparse_spmv_alg algo;
 
+        hipEvent_t *events_send;
         hipEvent_t *events_recv;
         hipStream_t *streams_recv;
         MPI_Request *send_requests;
         MPI_Request *recv_requests;
+
+        int number_of_neighbours;
+        int *neighbours;
+        int *nnz_cols_per_neighbour;
+        int *nnz_rows_per_neighbour;
+
+        int **cols_per_neighbour_h;
+        int **cols_per_neighbour_d;
+        int **rows_per_neighbour_h;
+        int **rows_per_neighbour_d;
+
+        double **send_buffer_d;
+        double **recv_buffer_d;
 
         Distributed_subblock(
             int matrix_size,
@@ -97,7 +111,7 @@ class Distributed_subblock{
 
 
     private:
-
+        void analyze();
 
 };
 
