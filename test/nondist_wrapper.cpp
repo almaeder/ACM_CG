@@ -882,6 +882,24 @@ void test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlek
     MPI_Comm comm,
     double *time_taken, int number_of_measurements);
 template 
+void test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed4>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    int *subblock_indices_h,
+    double *subblock_data_h,
+    int *subblock_col_indices_h,
+    int *subblock_row_ptr_h,
+    int subblock_size,
+    double *r_h,
+    double *reference_solution,
+    double *starting_guess_h,
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken, int number_of_measurements);
+template 
 void test_preconditioned_split_sparse<dspmv_split_sparse::uncompressed_manual_singlekernel>(
     double *data_h,
     int *col_indices_h,

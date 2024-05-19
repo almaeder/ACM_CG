@@ -539,25 +539,6 @@ void manual_packing_singlekernel_compressed3(
             MPI_DOUBLE, recv_idx, recv_tag, A_subblock.comm, &A_subblock.recv_requests[i]);
     }
 
-    // for(int i = 0; i < size; i++){
-    //     if(rank == i){
-    //         for(int j = 1; j < A_subblock.number_of_neighbours; j++){
-    //             std::cout << "Rank " << rank << " send to " << A_subblock.neighbours[j] << " " << A_subblock.nnz_rows_per_neighbour[j] << std::endl;
-    //         }
-    //     }
-    //     MPI_Barrier(A_subblock.comm);
-    // }
-    // for(int i = 0; i < size; i++){
-    //     if(rank == i){
-    //         for(int j = 1; j < A_subblock.number_of_neighbours; j++){
-    //             std::cout << "Rank " << rank << " recv from " << A_subblock.neighbours[j] << " " << A_subblock.nnz_cols_per_neighbour[j] << std::endl;
-    //         }
-    //     }
-    //     MPI_Barrier(A_subblock.comm);
-    // }
-
-    // exit(0);
-    
     dspmv::manual_packing_singlekernel_compressed(
         A_distributed,
         p_distributed,
@@ -565,8 +546,6 @@ void manual_packing_singlekernel_compressed3(
         default_stream,
         default_rocsparseHandle
     );
-
-    
 
     for(int i = 1; i < A_subblock.number_of_neighbours; i++){
         // loop over neighbors
@@ -600,6 +579,102 @@ void manual_packing_singlekernel_compressed3(
     }
 
 }
+
+void manual_packing_singlekernel_compressed4(
+    Distributed_subblock &A_subblock,
+    Distributed_matrix &A_distributed,    
+    double *p_subblock_d,
+    double *p_subblock_h,
+    rocsparse_dnvec_descr &vecp_subblock,
+    Distributed_vector &p_distributed,
+    double *Ap_subblock_d,
+    rocsparse_dnvec_descr &vecAp_subblock,
+    rocsparse_dnvec_descr &vecAp_local,
+    double *Ap_local_d,
+    hipStream_t &default_stream,
+    rocsparse_handle &default_rocsparseHandle)
+{
+    // Isend Irecv subblock
+    // sparse part
+    //gemv
+    int rank = A_distributed.rank;
+    int size = A_distributed.size;
+
+    double alpha = 1.0;
+    double beta = 0.0;
+
+    // pack dense sublblock p
+    pack(A_subblock.p_double_compressed_d + A_subblock.displacements_compressed_subblock[rank],
+        p_distributed.vec_d[0],
+        A_subblock.subblock_indices_local_d,
+        A_subblock.counts_subblock[rank],
+        default_stream);
+
+    // post all send requests
+    for(int i = 1; i < A_subblock.number_of_neighbours; i++){
+        pack(A_subblock.send_buffer_d[i], A_subblock.p_double_compressed_d + A_subblock.displacements_compressed_subblock[rank],
+            A_subblock.rows_per_neighbour_d[i], A_subblock.nnz_rows_per_neighbour[i], default_stream);
+
+        cudaErrchk(hipEventRecord(A_subblock.events_send[i], default_stream));
+    }
+
+    hipDeviceSynchronize();
+    for(int i = 1; i < A_subblock.number_of_neighbours; i++){
+        int send_idx = A_subblock.neighbours[i];
+        int send_tag = std::abs(send_idx-A_subblock.rank) + 2*size;
+
+        cudaErrchk(hipEventSynchronize(A_subblock.events_send[i]));
+
+        MPI_Isend(A_subblock.send_buffer_d[i], A_subblock.nnz_rows_per_neighbour[i],
+            MPI_DOUBLE, send_idx, send_tag, A_subblock.comm, &A_subblock.send_requests[i]);
+    }
+
+    for(int i = 1; i < A_subblock.number_of_neighbours; i++){
+        // loop over neighbors
+        int recv_idx = A_subblock.neighbours[i];
+        int recv_tag = std::abs(recv_idx-A_subblock.rank) + 2*size;
+        MPI_Irecv(A_subblock.p_double_compressed_d + A_subblock.displacements_compressed_subblock[recv_idx], 
+            A_subblock.nnz_cols_per_neighbour[i],
+            MPI_DOUBLE, recv_idx, recv_tag, A_subblock.comm, &A_subblock.recv_requests[i]);
+    }
+
+    dspmv::manual_packing_singlekernel_compressed(
+        A_distributed,
+        p_distributed,
+        vecAp_local,
+        default_stream,
+        default_rocsparseHandle
+    );
+
+
+    if(size > 1){
+        MPI_Waitall(A_subblock.number_of_neighbours-1,
+            &A_subblock.recv_requests[1], MPI_STATUSES_IGNORE);
+    }
+
+    rocsparse_spmv(
+        default_rocsparseHandle, rocsparse_operation_none, &alpha,
+        A_subblock.descriptor_double_compressed, A_subblock.p_double_compressed_descriptor,
+        &beta, vecAp_subblock, rocsparse_datatype_f64_r,
+        A_subblock.algo,
+        &A_subblock.buffersize_double_compressed,
+        A_subblock.buffer_double_compressed_d);
+
+    // unpack and add it to Ap
+    unpack_add(
+        Ap_local_d,
+        Ap_subblock_d,
+        A_subblock.subblock_indices_local_d,
+        A_subblock.counts_subblock[rank],
+        default_stream
+    );     
+    if(size > 1){
+        MPI_Waitall(A_subblock.number_of_neighbours-1,
+            &A_subblock.send_requests[1], MPI_STATUSES_IGNORE);
+    }
+
+}
+
 
 
 void uncompressed_manual_singlekernel(

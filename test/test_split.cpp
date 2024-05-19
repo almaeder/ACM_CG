@@ -413,7 +413,7 @@ int main(int argc, char **argv) {
     //     relative_error(matrix_size, test_solution6_h, reference_solution);
     // }
 
-    test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed3>(
+    test_preconditioned_split_sparse<dspmv_split_sparse::manual_packing_singlekernel_compressed4>(
             data_sparse,
             col_indices_sparse,
             row_ptr_sparse,

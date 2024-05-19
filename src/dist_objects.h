@@ -91,6 +91,18 @@ class Distributed_subblock{
         double **send_buffer_d;
         double **recv_buffer_d;
 
+        int nnz_cols;
+        int *compression_indices_d;
+        int *col_indices_double_compressed_d;
+
+        rocsparse_spmat_descr descriptor_double_compressed;
+        size_t buffersize_double_compressed;
+        double *buffer_double_compressed_d;
+
+        double *p_double_compressed_d;
+        rocsparse_dnvec_descr p_double_compressed_descriptor;
+        int *displacements_compressed_subblock;
+
         Distributed_subblock(
             int matrix_size,
             int *subblock_indices_local_h,
@@ -112,6 +124,8 @@ class Distributed_subblock{
 
     private:
         void analyze();
+
+        void further_compress();
 
 };
 
