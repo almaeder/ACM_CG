@@ -597,14 +597,14 @@ void test_preconditioned_split_sparse(
     if(rank == 0){
         algos[0] = rocsparse_spmv_alg_csr_adaptive;
         for(int k = 1; k < size-1; k++){
-            algos[k] = rocsparse_spmv_alg_csr_stream;
+            algos[k] = rocsparse_spmv_alg_csr_adaptive;
         }        
         algos[size-1] = rocsparse_spmv_alg_csr_adaptive;
     }
     else{
         algos[0] = rocsparse_spmv_alg_csr_adaptive;
         for(int k = 1; k < size; k++){
-            algos[k] = rocsparse_spmv_alg_csr_stream;
+            algos[k] = rocsparse_spmv_alg_csr_adaptive;
         }     
     }
 
@@ -725,7 +725,7 @@ void test_preconditioned_split_sparse(
         Preconditioner_jacobi_split precon(
             A_distributed,
             A_subblock);
-        
+
         iterative_solver::preconditioned_conjugate_gradient_split<distributed_spmv_split, Preconditioner_jacobi_split>(
             A_subblock,
             A_distributed,

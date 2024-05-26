@@ -263,8 +263,8 @@ int main(int argc, char **argv) {
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
-    int start_up_measurements = 0;
-    int true_number_of_measurements = 3;
+    int start_up_measurements = 2;
+    int true_number_of_measurements = 5;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
     
     double times_not_split_overlap[number_of_measurements];
@@ -442,6 +442,7 @@ int main(int argc, char **argv) {
     // std::string path_overlap_compressed2 = get_filename(save_path, "X_overlap_compressed2", size, rank);
     // std::string path_singlekernel_compressed1 = get_filename(save_path, "X_singlekernel_compressed1", size, rank);
     // std::string path_singlekernel_compressed2 = get_filename(save_path, "X_singlekernel_compressed2", size, rank);
+    std::string path_singlekernel_compressed3 = get_filename(save_path, "X_singlekernel_compressed3", size, rank);
 
     // save_measurements(path_not_split_overlap,
     //     times_not_split_overlap + start_up_measurements,
@@ -461,6 +462,9 @@ int main(int argc, char **argv) {
     // save_measurements(path_singlekernel_compressed2,
     //     times_singlekernel_compressed2 + start_up_measurements,
     //     true_number_of_measurements, true);
+    save_measurements(path_singlekernel_compressed3,
+        times_singlekernel_compressed3 + start_up_measurements,
+        true_number_of_measurements, true);
 
     delete[] data_sparse;
     delete[] row_ptr_sparse;

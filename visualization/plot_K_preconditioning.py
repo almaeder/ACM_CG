@@ -4,7 +4,7 @@ import scipy.stats as st
 import matplotlib  
 
 if __name__ == "__main__":
-    plt.rcParams.update({'font.size': 40})
+    plt.rcParams.update({'font.size': 50})
     matplotlib.rcParams['axes.linewidth'] =3
     matplotlib.rcParams['xtick.major.size'] = 10
     matplotlib.rcParams['xtick.major.width'] = 2
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     fig.set_size_inches(16, 12)
 
-    colors = ["darkblue", "dodgerblue",
+    colors = ["darkblue", "purple",
                 "darkgreen", "lime", "purple"]
 
     labels = [
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         labelbottom=False)  # labels along the bottom edge are off
 
     ax.set_ylabel("Time [s]")
-    ax.set_xlabel("Preconditioner")
+    # ax.set_xlabel("Preconditioner")
 
     ax.legend(loc='upper left')
 

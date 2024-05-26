@@ -67,14 +67,15 @@ Preconditioner_jacobi_split::Preconditioner_jacobi_split(
         diag_inv_d,
         rows_this_rank
     );
-    extract_add_subblock_diagonal(
+    extract_add_subblock_diagonal2(
         A_subblock_distributed.subblock_indices_local_d,
-        A_subblock_distributed.row_ptr_compressed_d,
+        A_subblock_distributed.row_indices_compressed_d,
         A_subblock_distributed.col_indices_compressed_d,
         A_subblock_distributed.data_d,
         diag_inv_d,
         A_subblock_distributed.counts_subblock[A_subblock_distributed.rank],
-        A_subblock_distributed.displacements_subblock[A_subblock_distributed.rank]
+        A_subblock_distributed.displacements_subblock[A_subblock_distributed.rank],
+        A_subblock_distributed.nnz
     );
     inv_inplace(
         diag_inv_d,

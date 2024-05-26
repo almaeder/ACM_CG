@@ -171,6 +171,16 @@ Distributed_subblock::Distributed_subblock(
     cudaErrchk(hipMalloc(&buffer_uncompressed_d, buffersize_uncompressed));
 
 
+    cudaErrchk(hipMalloc(&row_indices_compressed_d, nnz * sizeof(int)));
+
+    rocsparse_csr2coo(rocsparse_handle,
+                    this->row_ptr_compressed_d,
+                    nnz,
+                    counts_subblock[rank],
+                    row_indices_compressed_d,
+                    rocsparse_index_base_zero);
+
+
     rocsparse_destroy_handle(rocsparse_handle);
 
     events_send = new hipEvent_t[size];
@@ -253,6 +263,8 @@ Distributed_subblock::~Distributed_subblock(){
     cudaErrchk(hipFree(p_double_compressed_d));
 
     delete[] displacements_compressed_subblock;
+
+    cudaErrchk(hipFree(row_indices_compressed_d));
 };
 
 void Distributed_subblock::analyze(){

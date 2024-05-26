@@ -30,6 +30,16 @@ void  extract_add_subblock_diagonal(
     int displ_subblock_this_rank
 );
 
+void  extract_add_subblock_diagonal2(
+    int *subblock_indices_d,
+    int *subblock_row_indices_d,
+    int *subblock_col_indices_d,
+    double *subblock_data_d,
+    double *diag_inv_d,
+    int subblock_rows_size,
+    int displ_subblock_this_rank,
+    int nnz);
+
 void inv_inplace(
     double *data_d,
     int size

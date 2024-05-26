@@ -4,7 +4,7 @@ import scipy.stats as st
 import matplotlib  
 
 if __name__ == "__main__":
-    plt.rcParams.update({'font.size': 40})
+    plt.rcParams.update({'font.size': 50})
     matplotlib.rcParams['axes.linewidth'] =3
     matplotlib.rcParams['xtick.major.size'] = 10
     matplotlib.rcParams['xtick.major.width'] = 2

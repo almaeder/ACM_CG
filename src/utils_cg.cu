@@ -91,7 +91,6 @@ __global__ void  _extract_add_subblock_diagonal(
     int displ_subblock_this_rank
 ){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
     for(int i = idx; i < subblock_rows_size; i += blockDim.x * gridDim.x){
         for(int j = subblock_row_ptr_d[i]; j < subblock_row_ptr_d[i+1]; j++){
             if(subblock_col_indices_d[j] == i + displ_subblock_this_rank){
@@ -99,6 +98,55 @@ __global__ void  _extract_add_subblock_diagonal(
                 break;
             }
         }
+    }
+}
+
+__global__ void  _extract_subblock_diagonal(
+    int * __restrict__ subblock_row_ptr_d,
+    int * __restrict__ subblock_col_indices_d,
+    double * __restrict__ subblock_data_d,
+    double * __restrict__ diag_d,
+    int subblock_rows_size,
+    int displ_subblock_this_rank
+){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tmp = displ_subblock_this_rank;
+    for(int i = idx; i < subblock_rows_size; i += blockDim.x * gridDim.x){
+        for(int j = subblock_row_ptr_d[i]; j < subblock_row_ptr_d[i+1]; j++){
+            if(subblock_col_indices_d[j] == i + displ_subblock_this_rank){
+                diag_d[i] = subblock_data_d[j];
+                break;
+            }
+        }
+    }
+}
+__global__ void  _extract_subblock_diagonal2(
+    int * __restrict__ subblock_row_indices_d,
+    int * __restrict__ subblock_col_indices_d,
+    double * __restrict__ subblock_data_d,
+    double * __restrict__ diag_d,
+    int nnz,
+    int displ_subblock_this_rank
+){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tmp = displ_subblock_this_rank;
+    for(int i = idx; i < nnz; i += blockDim.x * gridDim.x){
+        if(subblock_col_indices_d[i] == subblock_row_indices_d[i] + displ_subblock_this_rank){
+            diag_d[subblock_row_indices_d[i]] = subblock_data_d[i];
+        }
+    }
+}
+
+__global__ void _unpack_add(
+    double * __restrict__ unpacked_buffer,
+    double * __restrict__ packed_buffer,
+    int * __restrict__ indices,
+    int number_of_elements
+)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    for(int i = idx; i < number_of_elements; i += blockDim.x * gridDim.x){
+        unpacked_buffer[indices[i]] += packed_buffer[i];
     }
 }
 
@@ -111,16 +159,65 @@ void  extract_add_subblock_diagonal(
     int subblock_rows_size,
     int displ_subblock_this_rank
 ){
+
+    double *diag_d;
+    cudaErrchk(hipMalloc((void **)&diag_d,
+        subblock_rows_size * sizeof(double)));
+
     int block_size = 1024;
     int num_blocks = (subblock_rows_size + block_size - 1) / block_size;
-    hipLaunchKernelGGL(_extract_add_subblock_diagonal, num_blocks, block_size, 0, 0, 
-        subblock_indices_d,
+
+    hipLaunchKernelGGL(_extract_subblock_diagonal, num_blocks, block_size, 0, 0, 
         subblock_row_ptr_d,
         subblock_col_indices_d,
         subblock_data_d,
-        diag_inv_d,
+        diag_d,
         subblock_rows_size,
         displ_subblock_this_rank);
+    hipLaunchKernelGGL(_unpack_add, num_blocks, block_size, 0, 0, 
+        diag_inv_d,
+        diag_d,
+        subblock_indices_d,
+        subblock_rows_size);
+
+    cudaErrchk(hipFree(diag_d));
+
+}
+
+void  extract_add_subblock_diagonal2(
+    int *subblock_indices_d,
+    int *subblock_row_indices_d,
+    int *subblock_col_indices_d,
+    double *subblock_data_d,
+    double *diag_inv_d,
+    int subblock_rows_size,
+    int displ_subblock_this_rank,
+    int nnz
+){
+
+    double *diag_d;
+    cudaErrchk(hipMalloc((void **)&diag_d,
+        subblock_rows_size * sizeof(double)));
+
+    int block_size = 1024;
+    int num_blocks = (nnz + block_size - 1) / block_size;
+
+    hipLaunchKernelGGL(_extract_subblock_diagonal2, num_blocks, block_size, 0, 0, 
+        subblock_row_indices_d,
+        subblock_col_indices_d,
+        subblock_data_d,
+        diag_d,
+        nnz,
+        displ_subblock_this_rank);
+
+    num_blocks = (subblock_rows_size + block_size - 1) / block_size;
+    hipLaunchKernelGGL(_unpack_add, num_blocks, block_size, 0, 0, 
+        diag_inv_d,
+        diag_d,
+        subblock_indices_d,
+        subblock_rows_size);
+
+    cudaErrchk(hipFree(diag_d));
 
 }
 
@@ -410,18 +507,7 @@ void unpack(
     );
 }
 
-__global__ void _unpack_add(
-    double *unpacked_buffer,
-    double *packed_buffer,
-    int *indices,
-    int number_of_elements
-)
-{
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    for(int i = idx; i < number_of_elements; i += blockDim.x * gridDim.x){
-        unpacked_buffer[indices[i]] += packed_buffer[i];
-    }
-}
+
 
 void unpack_add(
     double *unpacked_buffer,

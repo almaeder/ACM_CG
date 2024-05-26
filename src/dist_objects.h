@@ -62,6 +62,8 @@ class Distributed_subblock{
         int *col_indices_uncompressed_d;
         int *col_indices_compressed_d;
         
+        int *row_indices_compressed_d;
+
         rocsparse_spmat_descr descriptor_compressed;
         size_t buffersize_compressed;
         double *buffer_compressed_d;
