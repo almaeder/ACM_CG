@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+build/*
+
+select_gpu
+**/core
+*.png
+*.jpg
+*.bin
+
+rank_*
