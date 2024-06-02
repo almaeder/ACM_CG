@@ -47,8 +47,8 @@ int main(int argc, char **argv) {
         std::cout << "nnz " << nnz << std::endl;
     }
 
-    int start_up_measurements = 2;
-    int true_number_of_measurements = 5;
+    int start_up_measurements = 0;
+    int true_number_of_measurements = 1;
     int number_of_measurements = start_up_measurements + true_number_of_measurements;
 
     int max_iterations = 2000;
@@ -120,6 +120,7 @@ int main(int argc, char **argv) {
     double times_pointpoint_singlekernel[number_of_measurements];
     double times_manual_packing_singlekernel[number_of_measurements];
     double times_manual_packing_singlekernel_compressed[number_of_measurements];
+    double times_manual_packing_overlap_compressed2[number_of_measurements];
 
     double *test_solution1_h = new double[matrix_size];
     double *test_solution2_h = new double[matrix_size];
@@ -128,117 +129,119 @@ int main(int argc, char **argv) {
     double *test_solution5_h = new double[matrix_size];
     double *test_solution6_h = new double[matrix_size];
     double *test_solution7_h = new double[matrix_size];
+    double *test_solution8_h = new double[matrix_size];
 
 
-    test_preconditioned<dspmv::alltoall, Preconditioner_jacobi>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution1_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_alltoall,
-        number_of_measurements
-    );
-    if(rank == 0){
-        relative_error(matrix_size, test_solution1_h, reference_solution);
-    }
+    // test_preconditioned<dspmv::alltoall, Preconditioner_jacobi>(
+    //     data,
+    //     col_indices,
+    //     row_ptr,
+    //     rhs,
+    //     starting_guess_h,
+    //     test_solution1_h,
+    //     matrix_size,
+    //     relative_tolerance,
+    //     max_iterations,
+    //     MPI_COMM_WORLD,
+    //     times_alltoall,
+    //     number_of_measurements
+    // );
+    // if(rank == 0){
+    //     relative_error(matrix_size, test_solution1_h, reference_solution);
+    // }
 
-    test_preconditioned<dspmv::pointpoint_overlap, Preconditioner_jacobi>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution2_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_pointpoint_overlap,
-        number_of_measurements
-    );
-    if(rank == 0){
-        relative_error(matrix_size, test_solution2_h, reference_solution);
-    }
+    // test_preconditioned<dspmv::pointpoint_overlap, Preconditioner_jacobi>(
+    //     data,
+    //     col_indices,
+    //     row_ptr,
+    //     rhs,
+    //     starting_guess_h,
+    //     test_solution2_h,
+    //     matrix_size,
+    //     relative_tolerance,
+    //     max_iterations,
+    //     MPI_COMM_WORLD,
+    //     times_pointpoint_overlap,
+    //     number_of_measurements
+    // );
+    // if(rank == 0){
+    //     relative_error(matrix_size, test_solution2_h, reference_solution);
+    // }
 
-    test_preconditioned<dspmv::manual_packing_overlap, Preconditioner_jacobi>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution3_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_manual_packing_overlap,
-        number_of_measurements
-    );
-    if(rank == 0){
-        relative_error(matrix_size, test_solution3_h, reference_solution);
-    }
+    // test_preconditioned<dspmv::manual_packing_overlap, Preconditioner_jacobi>(
+    //     data,
+    //     col_indices,
+    //     row_ptr,
+    //     rhs,
+    //     starting_guess_h,
+    //     test_solution3_h,
+    //     matrix_size,
+    //     relative_tolerance,
+    //     max_iterations,
+    //     MPI_COMM_WORLD,
+    //     times_manual_packing_overlap,
+    //     number_of_measurements
+    // );
+    // if(rank == 0){
+    //     relative_error(matrix_size, test_solution3_h, reference_solution);
+    // }
 
-    test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_jacobi>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution4_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_manual_packing_overlap_compressed,
-        number_of_measurements
-    );
+    // test_preconditioned<dspmv::manual_packing_overlap_compressed, Preconditioner_jacobi>(
+    //     data,
+    //     col_indices,
+    //     row_ptr,
+    //     rhs,
+    //     starting_guess_h,
+    //     test_solution4_h,
+    //     matrix_size,
+    //     relative_tolerance,
+    //     max_iterations,
+    //     MPI_COMM_WORLD,
+    //     times_manual_packing_overlap_compressed,
+    //     number_of_measurements
+    // );
 
-    if(rank == 0){
-        relative_error(matrix_size, test_solution4_h, reference_solution);
-    }
+    // if(rank == 0){
+    //     relative_error(matrix_size, test_solution4_h, reference_solution);
+    // }
 
-    test_preconditioned<dspmv::pointpoint_singlekernel, Preconditioner_jacobi>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution5_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_pointpoint_singlekernel,
-        number_of_measurements
-    );
+    // test_preconditioned<dspmv::pointpoint_singlekernel, Preconditioner_jacobi>(
+    //     data,
+    //     col_indices,
+    //     row_ptr,
+    //     rhs,
+    //     starting_guess_h,
+    //     test_solution5_h,
+    //     matrix_size,
+    //     relative_tolerance,
+    //     max_iterations,
+    //     MPI_COMM_WORLD,
+    //     times_pointpoint_singlekernel,
+    //     number_of_measurements
+    // );
 
-    if(rank == 0){
-        relative_error(matrix_size, test_solution5_h, reference_solution);
-    }
+    // if(rank == 0){
+    //     relative_error(matrix_size, test_solution5_h, reference_solution);
+    // }
 
-    test_preconditioned<dspmv::manual_packing_singlekernel, Preconditioner_jacobi>(
-        data,
-        col_indices,
-        row_ptr,
-        rhs,
-        starting_guess_h,
-        test_solution6_h,
-        matrix_size,
-        relative_tolerance,
-        max_iterations,
-        MPI_COMM_WORLD,
-        times_manual_packing_singlekernel,
-        number_of_measurements
-    );
-    if(rank == 0){
-        relative_error(matrix_size, test_solution6_h, reference_solution);
-    }
+    // test_preconditioned<dspmv::manual_packing_singlekernel, Preconditioner_jacobi>(
+    //     data,
+    //     col_indices,
+    //     row_ptr,
+    //     rhs,
+    //     starting_guess_h,
+    //     test_solution6_h,
+    //     matrix_size,
+    //     relative_tolerance,
+    //     max_iterations,
+    //     MPI_COMM_WORLD,
+    //     times_manual_packing_singlekernel,
+    //     number_of_measurements
+    // );
+    // if(rank == 0){
+    //     relative_error(matrix_size, test_solution6_h, reference_solution);
+    // }
+
 
     test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_jacobi>(
         data,
@@ -259,38 +262,62 @@ int main(int argc, char **argv) {
     }
 
 
+    test_preconditioned<dspmv::manual_packing_overlap_compressed2, Preconditioner_jacobi>(
+        data,
+        col_indices,
+        row_ptr,
+        rhs,
+        starting_guess_h,
+        test_solution8_h,
+        matrix_size,
+        relative_tolerance,
+        max_iterations,
+        MPI_COMM_WORLD,
+        times_manual_packing_overlap_compressed2,
+        number_of_measurements
+    );
+    if(rank == 0){
+        relative_error(matrix_size, test_solution8_h, reference_solution);
+    }
 
-    std::string path_alltoall = get_filename(save_path, "alltoall", size, rank);
-    std::string path_pointpoint_overlap = get_filename(save_path, "pointpoint_overlap", size, rank);
-    std::string path_manual_packing_overlap = get_filename(save_path, "manual_packing_overlap", size, rank);
-    std::string path_manual_packing_overlap_compressed = get_filename(save_path, "manual_packing_overlap_compressed", size, rank);
-    std::string path_pointpoint_singlekernel = get_filename(save_path, "pointpoint_singlekernel", size, rank);
-    std::string path_manual_packing_singlekernel = get_filename(save_path, "manual_packing_singlekernel", size, rank);
-    std::string path_manual_packing_singlekernel_compressed = get_filename(save_path, "manual_packing_singlekernel_compressed", size, rank);
 
-    save_measurements(path_alltoall,
-        times_alltoall + start_up_measurements,
-        true_number_of_measurements, true);
-    save_measurements(path_pointpoint_overlap,
-        times_pointpoint_overlap + start_up_measurements,
-        true_number_of_measurements, true);
-    save_measurements(path_manual_packing_overlap,
-        times_manual_packing_overlap + start_up_measurements,
-        true_number_of_measurements, true);
-    save_measurements(path_manual_packing_overlap_compressed,
-        times_manual_packing_overlap_compressed + start_up_measurements,
-        true_number_of_measurements, true);
-    save_measurements(path_pointpoint_singlekernel,
-        times_pointpoint_singlekernel + start_up_measurements,
-        true_number_of_measurements, true);
-    save_measurements(path_manual_packing_singlekernel, 
-        times_manual_packing_singlekernel + start_up_measurements,
-        true_number_of_measurements, true);
-    save_measurements(path_manual_packing_singlekernel_compressed,
-        times_manual_packing_singlekernel_compressed + start_up_measurements,
-        true_number_of_measurements, true);
+    // std::string path_alltoall = get_filename(save_path, "alltoall", size, rank);
+    // std::string path_pointpoint_overlap = get_filename(save_path, "pointpoint_overlap", size, rank);
+    // std::string path_manual_packing_overlap = get_filename(save_path, "manual_packing_overlap", size, rank);
+    // std::string path_manual_packing_overlap_compressed = get_filename(save_path, "manual_packing_overlap_compressed", size, rank);
+    // std::string path_pointpoint_singlekernel = get_filename(save_path, "pointpoint_singlekernel", size, rank);
+    // std::string path_manual_packing_singlekernel = get_filename(save_path, "manual_packing_singlekernel", size, rank);
+    // std::string path_manual_packing_singlekernel_compressed = get_filename(save_path, "manual_packing_singlekernel_compressed", size, rank);
+    // std::string path_manual_packing_overlap_compressed2 = get_filename(save_path, "manual_packing_overlap_compressed2", size, rank);
+
+
+
+    // save_measurements(path_alltoall,
+    //     times_alltoall + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_pointpoint_overlap,
+    //     times_pointpoint_overlap + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_manual_packing_overlap,
+    //     times_manual_packing_overlap + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_manual_packing_overlap_compressed,
+    //     times_manual_packing_overlap_compressed + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_pointpoint_singlekernel,
+    //     times_pointpoint_singlekernel + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_manual_packing_singlekernel, 
+    //     times_manual_packing_singlekernel + start_up_measurements,
+    //     true_number_of_measurements, true);
+    // save_measurements(path_manual_packing_singlekernel_compressed,
+    //     times_manual_packing_singlekernel_compressed + start_up_measurements,
+    //     true_number_of_measurements, true);
     
-
+    // save_measurements(path_manual_packing_overlap_compressed2,
+    //     times_manual_packing_overlap_compressed2 + start_up_measurements,
+    //     true_number_of_measurements, true);
+    
     delete[] data;
     delete[] row_ptr;
     delete[] col_indices;

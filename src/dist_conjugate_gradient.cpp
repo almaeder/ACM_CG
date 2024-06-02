@@ -438,5 +438,15 @@ void preconditioned_conjugate_gradient<dspmv::manual_packing_singlekernel_compre
     int max_iterations,
     MPI_Comm comm,
     Preconditioner_block_ic &precon);
+template 
+void preconditioned_conjugate_gradient<dspmv::manual_packing_overlap_compressed2, Preconditioner_jacobi>(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    double *r_local_d,
+    double *x_local_d,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    Preconditioner_jacobi &precon);
 
 } // namespace iterative_solver

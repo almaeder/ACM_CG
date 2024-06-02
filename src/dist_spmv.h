@@ -61,6 +61,12 @@ void manual_packing_singlekernel_compressed(
     hipStream_t &default_stream,
     rocsparse_handle &default_rocsparseHandle);
 
+void manual_packing_overlap_compressed2(
+    Distributed_matrix &A_distributed,
+    Distributed_vector &p_distributed,
+    rocsparse_dnvec_descr &vecAp_local,
+    hipStream_t &default_stream,
+    rocsparse_handle &default_rocsparseHandle);
 
 } // namespace dspmv
 

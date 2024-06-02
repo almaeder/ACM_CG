@@ -47,11 +47,18 @@ void test_preconditioned(
         data_local_h[i] = data_h[i+row_indptr_h[row_start_index]];
     }
 
+    // rocsparse_spmv_alg algos[size];
+    // for(int k = 0; k < size; k++){
+    //     algos[k] = rocsparse_spmv_alg_csr_adaptive;
+    // }        
+    // algos[rank] = rocsparse_spmv_alg_csr_adaptive;
+
     rocsparse_spmv_alg algos[size];
     for(int k = 0; k < size; k++){
-        algos[k] = rocsparse_spmv_alg_csr_adaptive;
+        algos[k] = rocsparse_spmv_alg_csr_stream;
     }        
     algos[rank] = rocsparse_spmv_alg_csr_adaptive;
+
     // use class contructor where whole rows_this_rank*matrix_size is input
     // TODO specialized class constructor which either do row block or split blocks
     // possible to directly give number_of_neighbors * (rows_this_rank*rows_other_rank) as input
@@ -512,6 +519,20 @@ void test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Precondi
     int number_of_measurements);
 template 
 void test_preconditioned<dspmv::manual_packing_singlekernel_compressed, Preconditioner_block_ic>(
+    double *data_h,
+    int *col_indices_h,
+    int *row_indptr_h,
+    double *r_h,
+    double *starting_guess_h,
+    double *test_solution_h,    
+    int matrix_size,
+    double relative_tolerance,
+    int max_iterations,
+    MPI_Comm comm,
+    double *time_taken,
+    int number_of_measurements);
+template 
+void test_preconditioned<dspmv::manual_packing_overlap_compressed2, Preconditioner_jacobi>(
     double *data_h,
     int *col_indices_h,
     int *row_indptr_h,
