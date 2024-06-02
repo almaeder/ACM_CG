@@ -6,7 +6,7 @@ import matplotlib
 from matplotlib.lines import Line2D
 
 if __name__ == "__main__":
-    plt.rcParams.update({'font.size': 40})
+    plt.rcParams.update({'font.size': 50})
     matplotlib.rcParams['axes.linewidth'] =3
     matplotlib.rcParams['xtick.major.size'] = 10
     matplotlib.rcParams['xtick.major.width'] = 2
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     #     Line2D([0], [0], color='black', lw=linewidth, label='Rowwise', linestyle="dashed")
     # ]
     
-    num = '3'
+    num = '5'
 
     reference_path = base_path + "manual_packing_overlap_1_0.txt"
     reference_time = np.loadtxt(reference_path).flatten()
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         x = np.array(sizes)
         ax.plot(x, medians, label=labels[i], color=colors[i], linestyle=linestyle_str[i], linewidth=linewidth)
         plt.errorbar(x, medians, yerr=np.squeeze(yer), color=colors[i], capsize=capsize, barsabove=True, marker='x', linestyle='None', linewidth=linewidth, elinewidth=elinewidth, capthick=captick)
-        print(medians)
+
 
     ax.set_ylabel("Speedup")
     # ax.set_xlabel("GCDs")
@@ -262,12 +262,12 @@ if __name__ == "__main__":
 
 
 
-    leg = ax.legend(handles=legend_elements, loc="upper left")
-    ax.add_artist(leg)
-    ax.legend(handles=legend_elements2, loc="lower left")
+    # leg = ax.legend(handles=legend_elements, loc="upper left")
+    # ax.add_artist(leg)
+    # ax.legend(handles=legend_elements2, loc="lower left")
 
 
-    ax.set_ylim(bottom=0,top=3.8)
+    ax.set_ylim(bottom=0,top=4)
     ax.set_xscale("log", base=2)
     ax.set_xticks(sizes, minor=False)
     ax.set_xticklabels(sizes, minor=False)
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     # secax.spines['bottom'].set_position(('outward', 20))
 
     # Set secondary x-axis ticks
-    secax.spines['bottom'].set_position(('outward', 35))
+    secax.spines['bottom'].set_position(('outward', 45))
     secax.set_xticks(sizes)
     # secax.set_xticklabels(sizes)
     secax.set_xticklabels(['(1)', '(1)', '(1)', '(1)', '(2)', '(4)'])
@@ -296,4 +296,4 @@ if __name__ == "__main__":
 
 
 
-    # plt.savefig(images_path + "K_comparison" + num + ".png", bbox_inches='tight', dpi=300)
+    plt.savefig(images_path + "K_comparison" + num + ".png", bbox_inches='tight', dpi=300)

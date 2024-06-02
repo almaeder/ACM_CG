@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 import scipy.stats as st
 import matplotlib  
-from matplotlib.ticker import FormatStrFormatter
 from matplotlib.lines import Line2D
 
 if __name__ == "__main__":
@@ -23,53 +22,59 @@ if __name__ == "__main__":
     capsize = 12
     captick = 5
 
+    number_of_measured_steps = 1
     base_path = "/scratch/project_465000929/maederal/ACM_Poster/results/"
     images_path = ""
-    sizes = [1, 2, 4, 8, 16, 32]
+    sizes = [8, 16, 32]
 
     method_names = [
-        "X_not_split_overlap",
-        "X_not_split_singelkernel",
-        "X_singlekernel_compressed1"
-    ]
-
-    method_names = [
-        "X_not_split_singelkernel",
-        "X_singlekernel_compressed3"
+        "manual_packing_singlekernel_compressed",
+        "manual_packing_overlap_compressed",
+        "manual_packing_singlekernel",
+        "manual_packing_overlap",
+        "pointpoint_singlekernel",
+        "pointpoint_overlap"
     ]
     colors = [
-        "tab:blue",
-        "darkgreen"
+        "tab:red",
+        "darkred",
+        "tab:green",
+        "darkgreen",
+        "blue",
+        "darkblue"
     ]
+
+
     labels = [
-        "Non Split",
-        "Split"
+        "Rowwise",
+        "Blockwise",
+        "Rowwise",
+        "Blockwise",
+        "Rowwise",
+        "Blockwise"
     ]
 
     paths = [
         base_path,
+        base_path,
+        base_path,
+        base_path,
+        base_path,
         base_path
     ]
-   
-    num = "2"
 
-    # method_names = [
-    #     "X_not_split_singelkernel"
-    # ]
-    # colors = [
-    #     "tab:blue"
-    # ]
-    # labels = [
-    #     "Non Split"
-    # ]
+    linestyle_str =[
+        "dashed",
+        "dotted",
+        "dashed",
+        "dotted",
+        "dashed",
+        "dotted"
+    ]   
+    
+    num = '4'
 
-    # paths = [
-    #     base_path
-    # ]
-
-    # num = "1"
-
-    reference_path = base_path + "X_not_split_singelkernel_1_0.txt"
+    reference_path = base_path + "manual_packing_overlap_1_0.txt"
     reference_time = np.loadtxt(reference_path).flatten()
     median_reference_time = np.median(reference_time)
     median_reference_time = np.min([median_reference_time])
@@ -105,52 +110,48 @@ if __name__ == "__main__":
 
         yer = np.array(yer).T
         x = np.array(sizes)
-        ax.plot(x, medians, label=labels[i], color=colors[i], linestyle='dashed', linewidth=linewidth)
+        ax.plot(x, medians, label=labels[i], color=colors[i], linestyle=linestyle_str[i], linewidth=linewidth)
         plt.errorbar(x, medians, yerr=np.squeeze(yer), color=colors[i], capsize=capsize, barsabove=True, marker='x', linestyle='None', linewidth=linewidth, elinewidth=elinewidth, capthick=captick)
 
-        print(medians)
 
-    ax.set_ylabel("Speedup")
+    # ax.set_ylabel("Speedup")
+        # ax.set_xlabel("GCDs")
+    plt.tick_params(
+        axis='x',          
+        which='both',      
+        bottom=False,     
+        top=False,         
+        labelbottom=False)
 
-    # legend_elements2 = \
-    # [
-    #     Line2D([0], [0], color='black', lw=linewidth, label='Rowwise', linestyle="dashed"),
-    # ]
-
-    # leg = ax.legend(handles=legend_elements2, loc="lower right")
-    # ax.add_artist(leg)
-    ax.legend()
-
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-    ax.set_ylim(bottom=0)
+    ax.set_ylim(bottom=2.2, top=3.8)
     ax.set_xscale("log", base=2)
-    ax.set_xticks(sizes, minor=False)
-    ax.set_xticklabels(sizes, minor=False)
+    # ax.set_xticks(sizes, minor=False)
+    # ax.set_xticklabels(sizes, minor=False)
 
 
-    ax.set_yticks([1,3,5,7,9], minor=False)
-    ax.set_yticklabels([1,3,5,7,9], minor=False)
+    ax.set_yticks([2.5, 3, 3.5], minor=False)
+    ax.set_yticklabels([2.5, 3, 3.5], minor=False)
 
-    secax = ax.secondary_xaxis("bottom")
-    secax.set_xscale("log", base=2)
+    # secax = ax.secondary_xaxis("bottom")
+    # secax.set_xscale("log", base=2)
     # secax.xaxis.set_label_position('bottom')
     # secax.xaxis.set_ticks_position('bottom')
     # secax.spines['bottom'].set_position(('outward', 20))
 
     # Set secondary x-axis ticks
-    secax.spines['bottom'].set_position(('outward', 45))
-    secax.set_xticks(sizes)
+    # secax.spines['bottom'].set_position(('outward', 35))
+    # secax.set_xticks(sizes)
     # secax.set_xticklabels(sizes)
-    secax.set_xticklabels(['(1)', '(1)', '(1)', '(1)', '(2)', '(4)'])
+    # secax.set_xticklabels(['(1)', '(2)', '(4)'])
 
     # Hide the secondary axis line
-    secax.spines['top'].set_visible(False)
-    secax.spines['bottom'].set_visible(False)
-    secax.spines['right'].set_visible(False)
-    secax.spines['left'].set_visible(False)
-    secax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=True)
+    # secax.spines['top'].set_visible(False)
+    # secax.spines['bottom'].set_visible(False)
+    # secax.spines['right'].set_visible(False)
+    # secax.spines['left'].set_visible(False)
+    # secax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=True)
 
-    secax.set_xlabel("GCDs (Nodes)")
+    # secax.set_xlabel("GCDs (Nodes)")
 
 
-    plt.savefig(images_path + "X_scaling"+num+".png", bbox_inches='tight', dpi=300)
+    plt.savefig(images_path + "K_comparison" + num + ".png", bbox_inches='tight', dpi=300)

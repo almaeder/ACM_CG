@@ -43,26 +43,28 @@ if __name__ == "__main__":
     fig.set_size_inches(12, 12)
     
     mat = sparse_matrix_subblock
-    plt.spy(mat, markersize=0.0000001, color="darkgreen", aspect='equal', alpha=0.5)
+    # plt.spy(mat, markersize=0.0000001, color="forestgreen", aspect='equal', alpha=0.9)
+    fig.patch.set_alpha(0.0)
     plt.spy(sparse_matrix, markersize=0.0001, aspect='equal')
 
     ax.set_yticks([], minor=False)
     ax.set_xticks([], minor=False)
     ax.get_yaxis().get_offset_text().set_visible(False)
     ax.get_xaxis().get_offset_text().set_position((0.5,0))
+    
     # plt.axis('off')
-    plt.savefig("X_matrix.png", bbox_inches='tight', dpi=1000)
+    plt.savefig("X_matrix3.png", bbox_inches='tight', dpi=1000, transparent=True)
 
-    plt.close('all')
-    fig, ax = plt.subplots()
-    fig.set_size_inches(12, 12)
-    plt.spy(mat[:50000,:50000], markersize=0.0000001, color="darkgreen", aspect='equal', alpha=0.5)
-    plt.spy(sparse_matrix[:50000,:50000], markersize=0.0001, aspect='equal')
+    # plt.close('all')
+    # fig, ax = plt.subplots()
+    # fig.set_size_inches(12, 12)
+    # plt.spy(mat[:50000,:50000], markersize=0.0000001, color="lightgreen", aspect='equal', alpha=0.5)
+    # plt.spy(sparse_matrix[:50000,:50000], markersize=0.0001, aspect='equal')
 
-    ax.set_yticks([], minor=False)
-    ax.set_xticks([], minor=False)
-    ax.get_yaxis().get_offset_text().set_visible(False)
-    ax.get_xaxis().get_offset_text().set_position((0.5,0))
-    # plt.axis('off')
-    plt.savefig("X_matrix_zoom.png", bbox_inches='tight', dpi=1000)
+    # ax.set_yticks([], minor=False)
+    # ax.set_xticks([], minor=False)
+    # ax.get_yaxis().get_offset_text().set_visible(False)
+    # ax.get_xaxis().get_offset_text().set_position((0.5,0))
+    # # plt.axis('off')
+    # plt.savefig("X_matrix_zoom.png", bbox_inches='tight', dpi=1000)
 
